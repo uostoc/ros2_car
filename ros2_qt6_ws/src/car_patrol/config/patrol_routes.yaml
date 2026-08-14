@@ -1,0 +1,21 @@
+# All headings are degrees. They are converted to radians only when publishing
+# ROS geometry messages.
+routes:
+  default:
+    start:
+      x: 1.8
+      y: -0.4
+      yaw_deg: 90.0
+    points:
+      - x: -1.9
+        y: -0.3
+        yaw_deg: 90.0
+      - x: -0.3
+        y: -0.3
+        yaw_deg: 90.0
+      - x: 1.3
+        y: -0.3
+        yaw_deg: 90.0
+      - x: 1.8
+        y: -0.4
+        yaw_deg: 90.0

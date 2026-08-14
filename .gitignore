@@ -1,0 +1,31 @@
+# Original, unversioned reference workspace supplied with the project.
+/source/
+/.migration-git-metadata/
+
+# Colcon and CMake build products.
+/ros2_qt6_ws/build/
+/ros2_qt6_ws/install/
+/ros2_qt6_ws/log/
+**/build/
+**/install/
+**/log/
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+
+# Python and Qt generated files.
+__pycache__/
+.ipynb_checkpoints/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+*.user
+*.autosave
+
+# Machine-specific deployment settings and secrets.
+/ros2_qt6_ws/config/vehicle.local.yaml
+/deploy/systemd/vehicle.env
+.env
+*.pem
+*.key
+*.crt

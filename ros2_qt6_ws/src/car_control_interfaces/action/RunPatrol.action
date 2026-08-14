@@ -1,0 +1,8 @@
+string route_name
+---
+bool completed
+string message
+---
+uint32 current_index
+uint32 total_points
+string current_point

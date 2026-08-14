@@ -1,0 +1,4 @@
+# Replace the vendor/product values with values from `udevadm info` for the
+# installed hardware. Stable by-id paths are preferred when available.
+# SUBSYSTEM=="tty", ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=="yyyy", GROUP="dialout", MODE="0660", SYMLINK+="ros2-car-controller"
+# SUBSYSTEM=="tty", ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=="yyyy", GROUP="dialout", MODE="0660", SYMLINK+="ros2-car-lidar"

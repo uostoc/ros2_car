@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>car_platform_bringup</name>
+  <version>0.1.0</version>
+  <description>Unified launch entry points for the physical ROS 2 car.</description>
+  <maintainer email="maintainer@example.com">ROS 2 Car Maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>micro_ros_agent</exec_depend>
+  <exec_depend>car_patrol</exec_depend>
+  <exec_depend>sllidar_ros2</exec_depend>
+  <exec_depend>fishbot_bringup</exec_depend>
+  <exec_depend>fishbot_navigation2</exec_depend>
+  <exec_depend>fishbot_cartographer</exec_depend>
+</package>

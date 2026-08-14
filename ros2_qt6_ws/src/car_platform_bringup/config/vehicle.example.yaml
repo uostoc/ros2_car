@@ -1,0 +1,8 @@
+# This launch-file example is intentionally duplicated at workspace level so
+# users can reference it before installing the package.
+micro_ros_device: /dev/ttyACM0
+micro_ros_baud: 921600
+lidar_device: /dev/ttyACM1
+lidar_baud: 460800
+map_file: ''
+use_sim_time: false
