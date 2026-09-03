@@ -24,6 +24,7 @@ Install ROS 2 Humble, Qt 6 Widgets development files, and the ROS packages
 listed in `docs/operations.md`. Then run:
 
 ```bash
+source /opt/ros/humble/setup.bash
 cd ros2_qt6_ws
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
@@ -33,9 +34,21 @@ source install/setup.bash
 Start the vehicle manager locally with the local configuration file:
 
 ```bash
+# First-time setup only: preserve an existing machine-specific configuration.
+test -f config/vehicle.local.yaml || cp config/vehicle.example.yaml config/vehicle.local.yaml
 ros2 run car_stack_manager car_stack_manager --ros-args \
-  --params-file ../config/vehicle.local.yaml
+  --params-file config/vehicle.local.yaml
 ```
 
-Run `ros2 run car_operator_console car_operator_console` on either the vehicle
-computer or another Ubuntu 22.04 computer on the same ROS 2 DDS network.
+## Run in a New Terminal
+
+Every new shell must load both the ROS 2 Humble underlay and this workspace
+before running either executable. On the vehicle computer or another Ubuntu
+22.04 computer on the same ROS 2 DDS network, run:
+
+```bash
+source /opt/ros/humble/setup.bash
+cd /path/to/ros2_qt6_ws
+source install/setup.bash
+ros2 run car_operator_console car_operator_console
+```

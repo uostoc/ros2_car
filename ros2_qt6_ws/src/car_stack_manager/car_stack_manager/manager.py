@@ -40,7 +40,6 @@ class CarStackManager(Node):
         self.declare_parameter('lidar_frame_id', 'laser')
         self.declare_parameter('map_file', '')
         self.declare_parameter('nav_params_file', '')
-        self.declare_parameter('use_sim_time', False)
 
         self._status_publisher = self.create_publisher(
             ComponentStatus, '/car_manager/component_status', 20)

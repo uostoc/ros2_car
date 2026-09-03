@@ -22,6 +22,7 @@ Agent、车载端进程管理服务、路线巡检节点和 Qt 6 操作员控制
 ROS 软件包，然后执行：
 
 ```bash
+source /opt/ros/humble/setup.bash
 cd ros2_qt6_ws
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
@@ -31,9 +32,21 @@ source install/setup.bash
 使用本地配置文件在车载端启动进程管理服务：
 
 ```bash
+# 仅首次执行：保留已有的机器专用配置。
+test -f config/vehicle.local.yaml || cp config/vehicle.example.yaml config/vehicle.local.yaml
 ros2 run car_stack_manager car_stack_manager --ros-args \
-  --params-file ../config/vehicle.local.yaml
+  --params-file config/vehicle.local.yaml
 ```
 
-可在车载计算机，或同一 ROS 2 DDS 网络中的另一台 Ubuntu 22.04 计算机上运行
-`ros2 run car_operator_console car_operator_console`。
+## 在新终端中运行
+
+每个新终端都必须先加载 ROS 2 Humble 底层环境和本工作区，然后才能运行任一
+可执行程序。在车载计算机，或同一 ROS 2 DDS 网络中的另一台 Ubuntu 22.04
+计算机上执行：
+
+```bash
+source /opt/ros/humble/setup.bash
+cd /path/to/ros2_qt6_ws
+source install/setup.bash
+ros2 run car_operator_console car_operator_console
+```
