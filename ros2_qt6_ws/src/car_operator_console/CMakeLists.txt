@@ -20,6 +20,8 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 add_executable(car_operator_console
+  include/car_operator_console/main_window.hpp
+  include/car_operator_console/ros_bridge.hpp
   src/main.cpp
   src/main_window.cpp
   src/ros_bridge.cpp
