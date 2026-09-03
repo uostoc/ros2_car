@@ -76,10 +76,11 @@ void RosBridge::request_stack(
   request->command = command;
   request->component = component.toStdString();
   request->profile = profile.toStdString();
-  manager_client_->async_send_request(request, [this](auto future) {
-    const auto response = future.get();
-    emit manager_reply(response->success, QString::fromStdString(response->message));
-  });
+  manager_client_->async_send_request(
+      request, [this](rclcpp::Client<ManageStack>::SharedFuture future) {
+        const auto response = future.get();
+        emit manager_reply(response->success, QString::fromStdString(response->message));
+      });
 }
 
 void RosBridge::start_stack(const QString &component, const QString &profile) {
@@ -94,7 +95,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosBridge::make_initial_pose(
     double x, double y, double yaw_degrees) const {
   geometry_msgs::msg::PoseWithCovarianceStamped pose;
   pose.header.frame_id = "map";
-  pose.header.stamp = node_->get_clock()->now().to_msg();
+  pose.header.stamp = static_cast<builtin_interfaces::msg::Time>(node_->get_clock()->now());
   pose.pose.pose.position.x = x;
   pose.pose.pose.position.y = y;
   const double yaw = yaw_degrees * std::acos(-1.0) / 180.0;

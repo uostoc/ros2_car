@@ -42,7 +42,7 @@ MainWindow::MainWindow(const QString &mode, QWidget *parent) : QMainWindow(paren
 
   auto *health_group = new QGroupBox("Vehicle health", central);
   auto *health_layout = new QGridLayout(health_group);
-  for (const QString &name : {"agent", "lidar", "bringup", "navigation", "mapping", "patrol", "/scan", "/odom", "/imu", "/map"}) {
+  for (const QString name : {"agent", "lidar", "bringup", "navigation", "mapping", "patrol", "/scan", "/odom", "/imu", "/map"}) {
     auto *label = new QLabel("Unknown", health_group);
     health_layout->addWidget(new QLabel(name, health_group), health_layout->rowCount(), 0);
     health_layout->addWidget(label, health_layout->rowCount() - 1, 1);
