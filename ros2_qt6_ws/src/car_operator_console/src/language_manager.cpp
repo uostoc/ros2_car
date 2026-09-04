@@ -4,6 +4,7 @@
 #include <utility>
 
 #include <QCoreApplication>
+#include <QDebug>
 #include <QSettings>
 #include <QTranslator>
 
@@ -42,8 +43,12 @@ bool LanguageManager::set_language(const QString &language) {
 
   auto candidate = std::make_unique<QTranslator>();
   const QString translation_file = QString("car_operator_console_%1").arg(requested_language);
-  const bool loaded = candidate->load(translation_file, translations_directory_);
+  const QString resource_file = QString(":/i18n/%1.qm").arg(translation_file);
+  const bool loaded = candidate->load(resource_file) ||
+                      candidate->load(translation_file, translations_directory_);
   if (!loaded && requested_language == "zh_CN") {
+    qWarning().noquote() << "Unable to load the Simplified Chinese translation from"
+                          << resource_file << "or" << translations_directory_;
     language_ = kDefaultLanguage;
     translator_.reset();
     QSettings().setValue(kLanguageSettingsKey, language_);

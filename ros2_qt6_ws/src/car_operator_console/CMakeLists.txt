@@ -52,6 +52,10 @@ set_source_files_properties(${translation_ts_files}
 qt_add_lrelease(car_operator_console
   TS_FILES ${translation_ts_files}
   QM_FILES_OUTPUT_VARIABLE translation_qm_files)
+qt_add_resources(car_operator_console "car_operator_console_translation_resources"
+  PREFIX "/i18n"
+  BASE "${CMAKE_CURRENT_BINARY_DIR}/translations"
+  FILES ${translation_qm_files})
 
 install(TARGETS car_operator_console
   DESTINATION lib/${PROJECT_NAME})
