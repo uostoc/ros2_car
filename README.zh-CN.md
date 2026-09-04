@@ -18,13 +18,13 @@ Agent、车载端进程管理服务、路线巡检节点和 Qt 6 操作员控制
 
 ## 在 Ubuntu 22.04 上构建
 
-安装 ROS 2 Humble、Qt 6 Widgets 与 Qt Linguist 开发工具，以及 `docs/operations.md` 中列出的
+安装 ROS 2 Humble、Qt 6 Widgets 与 Qt Linguist 开发工具，以及 `docs/operations.zh-CN.md` 中列出的
 ROS 软件包，然后执行：
 
 ```bash
 source /opt/ros/humble/setup.bash
 cd ros2_qt6_ws
-rosdep install --from-paths src --ignore-src -r -y
+rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python
 colcon build --symlink-install
 source install/setup.bash
 ```

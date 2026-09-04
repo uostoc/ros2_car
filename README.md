@@ -26,7 +26,7 @@ listed in `docs/operations.md`. Then run:
 ```bash
 source /opt/ros/humble/setup.bash
 cd ros2_qt6_ws
-rosdep install --from-paths src --ignore-src -r -y
+rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python
 colcon build --symlink-install
 source install/setup.bash
 ```

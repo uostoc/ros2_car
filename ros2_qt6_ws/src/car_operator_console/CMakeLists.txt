@@ -69,6 +69,7 @@ if(BUILD_TESTING)
   add_executable(test_language_manager
     include/car_operator_console/language_manager.hpp
     include/car_operator_console/main_window.hpp
+    include/car_operator_console/ros_bridge.hpp
     test/test_language_manager.cpp
     src/language_manager.cpp
     src/main_window.cpp

@@ -1,18 +1,21 @@
 # Vehicle deployment
 
+[English](operations.md) | [简体中文](operations.zh-CN.md)
+
 ## Prerequisites
 
 The supported runtime is Ubuntu 22.04 with ROS 2 Humble and Qt 6.
 
 ```bash
-sudo apt install qt6-base-dev qt6-base-dev-tools qt6-tools-dev qt6-l10n-tools \
+sudo apt install qt6-base-dev qt6-base-dev-tools qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
   ros-humble-nav2-bringup ros-humble-nav2-map-server \
   ros-humble-robot-localization ros-humble-cartographer \
   ros-humble-cartographer-ros
 ```
 
-Run `rosdep install --from-paths src --ignore-src -r -y` in `ros2_qt6_ws` to
-install package-level dependencies as well.
+Run `rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python`
+in `ros2_qt6_ws` to install package-level dependencies as well. `ament_python`
+is supplied by the sourced ROS 2 environment and has no Ubuntu rosdep key.
 
 ## Device configuration
 
