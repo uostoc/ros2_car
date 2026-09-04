@@ -63,10 +63,18 @@ class LanguageManagerTest final : public QObject {
     QCOMPARE(QCoreApplication::translate("MainWindow", "Start Navigation"), QString("启动导航"));
   }
 
+  void preserves_chinese_selection_when_a_catalog_is_unavailable() {
+    car_operator_console::LanguageManager manager("translations-that-do-not-exist");
+
+    QVERIFY(!manager.set_language("zh_CN"));
+    QCOMPARE(manager.language(), QString("zh_CN"));
+  }
+
   void language_menu_retranslates_the_window_immediately() {
     QSettings settings;
     settings.setValue("ui/language", "en");
-    car_operator_console::MainWindow window("operator", nullptr, translations_directory());
+    car_operator_console::MainWindow window(
+        "operator", nullptr, "translations-that-do-not-exist");
     auto *menu = window.findChild<QMenu *>("languageMenu");
     auto *english = window.findChild<QAction *>("englishLanguageAction");
     auto *chinese = window.findChild<QAction *>("simplifiedChineseLanguageAction");

@@ -40,13 +40,14 @@ class MainWindow final : public QMainWindow {
   };
 
   void append_log(const QString &message);
+  QString ui_text(const char *source) const;
   void retranslate_ui();
   void update_component_label(const QString &component);
   void update_health_label(const QString &topic);
   void update_patrol_progress_label();
   void update_component(const QString &component, int state, int pid, const QString &detail);
   void update_health(const QString &topic, bool active);
-  static QString state_text(int state);
+  QString state_text(int state) const;
 
   RosBridge bridge_;
   LanguageManager language_manager_;

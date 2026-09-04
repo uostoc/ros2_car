@@ -134,7 +134,7 @@ MainWindow::MainWindow(
   });
   connect(send_goal_button_, &QPushButton::clicked, this, [this] {
     if (!console_state_.can_navigate()) {
-      append_log(tr("Navigation stack is not running"));
+      append_log(ui_text("Navigation stack is not running"));
       return;
     }
     bridge_.send_navigation_goal(x_input_->value(), y_input_->value(), yaw_input_->value());
@@ -157,7 +157,7 @@ MainWindow::MainWindow(
   layout->addWidget(patrol_group_);
   connect(start_patrol_button_, &QPushButton::clicked, this, [this] {
     if (!console_state_.can_navigate()) {
-      append_log(tr("Navigation stack is not running"));
+      append_log(ui_text("Navigation stack is not running"));
       return;
     }
     bridge_.start_patrol(route_input_->currentText());
@@ -174,7 +174,7 @@ MainWindow::MainWindow(
   connect(&bridge_, &RosBridge::component_status, this, &MainWindow::update_component);
   connect(&bridge_, &RosBridge::topic_health, this, &MainWindow::update_health);
   connect(&bridge_, &RosBridge::manager_reply, this, [this](bool success, const QString &message) {
-    append_log(tr("Manager: %1 — %2").arg(success ? tr("OK") : tr("Error"), message));
+    append_log(ui_text("Manager: %1 — %2").arg(success ? ui_text("OK") : ui_text("Error"), message));
   });
   connect(&bridge_, &RosBridge::navigation_status, this, &MainWindow::append_log);
   connect(&bridge_, &RosBridge::patrol_status, this, &MainWindow::append_log);
@@ -199,38 +199,87 @@ void MainWindow::closeEvent(QCloseEvent *event) {
 
 void MainWindow::append_log(const QString &message) { log_->appendPlainText(message); }
 
+QString MainWindow::ui_text(const char *source) const {
+  const QString source_text = QString::fromUtf8(source);
+  const QString translated_text = tr(source);
+  if (language_manager_.language() != "zh_CN" || translated_text != source_text) {
+    return translated_text;
+  }
+
+  static const std::map<QString, QString> kChineseFallback = {
+      {"vehicle", "车载端"},
+      {"operator", "操作员端"},
+      {"ROS 2 Car Console — %1", "ROS 2 小车控制台 — %1"},
+      {"Language", "语言"},
+      {"Simplified Chinese", "简体中文"},
+      {"Vehicle health", "车辆状态"},
+      {"Stack management", "系统栈管理"},
+      {"Navigation (map frame, yaw in degrees)", "导航（地图坐标系，偏航角单位：度）"},
+      {"Navigation-only patrol", "仅导航巡检"},
+      {"Navigation map", "导航地图"},
+      {"Yaw", "偏航角"},
+      {"Route", "路线"},
+      {"Start Base", "启动基础栈"},
+      {"Start Navigation", "启动导航"},
+      {"Start Mapping", "启动建图"},
+      {"Stop All", "停止全部"},
+      {"Set Initial Pose", "设置初始位姿"},
+      {"Send Goal", "发送目标"},
+      {"Cancel Goal", "取消目标"},
+      {"Start Patrol", "开始巡检"},
+      {"Cancel Patrol", "取消巡检"},
+      {"Unknown", "未知"},
+      {"Active", "活跃"},
+      {"Inactive", "未活跃"},
+      {"Idle", "空闲"},
+      {"Stopped", "已停止"},
+      {"Starting", "启动中"},
+      {"Running", "运行中"},
+      {"Stopping", "停止中"},
+      {"Error", "错误"},
+      {"OK", "成功"},
+      {"Navigation stack is not running", "导航栈尚未运行"},
+      {"Manager: %1 — %2", "管理服务：%1 — %2"},
+      {"%1 (PID %2): %3", "%1（进程号 %2）：%3"},
+      {"%1/%2: %3", "%1/%2：%3"},
+      {"%1: %2", "%1：%2"},
+  };
+  const auto fallback = kChineseFallback.find(source_text);
+  return fallback == kChineseFallback.end() ? source_text : fallback->second;
+}
+
 void MainWindow::retranslate_ui() {
   QString mode_text = mode_;
   if (mode_ == "vehicle") {
-    mode_text = tr("vehicle");
+    mode_text = ui_text("vehicle");
   } else if (mode_ == "operator") {
-    mode_text = tr("operator");
+    mode_text = ui_text("operator");
   }
-  setWindowTitle(tr("ROS 2 Car Console — %1").arg(mode_text));
-  language_menu_->setTitle(tr("Language"));
-  english_action_->setText(tr("English"));
-  simplified_chinese_action_->setText(tr("Simplified Chinese"));
+  setWindowTitle(ui_text("ROS 2 Car Console — %1").arg(mode_text));
+  language_menu_->setTitle(ui_text("Language"));
+  english_action_->setText(ui_text("English"));
+  simplified_chinese_action_->setText(ui_text("Simplified Chinese"));
   english_action_->setChecked(language_manager_.language() == "en");
   simplified_chinese_action_->setChecked(language_manager_.language() == "zh_CN");
 
-  health_group_->setTitle(tr("Vehicle health"));
-  stack_group_->setTitle(tr("Stack management"));
-  navigation_group_->setTitle(tr("Navigation (map frame, yaw in degrees)"));
-  patrol_group_->setTitle(tr("Navigation-only patrol"));
-  map_label_->setText(tr("Navigation map"));
-  x_label_->setText(tr("X"));
-  y_label_->setText(tr("Y"));
-  yaw_label_->setText(tr("Yaw"));
-  route_label_->setText(tr("Route"));
-  start_base_button_->setText(tr("Start Base"));
-  start_navigation_button_->setText(tr("Start Navigation"));
-  start_mapping_button_->setText(tr("Start Mapping"));
-  stop_all_button_->setText(tr("Stop All"));
-  set_initial_pose_button_->setText(tr("Set Initial Pose"));
-  send_goal_button_->setText(tr("Send Goal"));
-  cancel_goal_button_->setText(tr("Cancel Goal"));
-  start_patrol_button_->setText(tr("Start Patrol"));
-  cancel_patrol_button_->setText(tr("Cancel Patrol"));
+  health_group_->setTitle(ui_text("Vehicle health"));
+  stack_group_->setTitle(ui_text("Stack management"));
+  navigation_group_->setTitle(ui_text("Navigation (map frame, yaw in degrees)"));
+  patrol_group_->setTitle(ui_text("Navigation-only patrol"));
+  map_label_->setText(ui_text("Navigation map"));
+  x_label_->setText(ui_text("X"));
+  y_label_->setText(ui_text("Y"));
+  yaw_label_->setText(ui_text("Yaw"));
+  route_label_->setText(ui_text("Route"));
+  start_base_button_->setText(ui_text("Start Base"));
+  start_navigation_button_->setText(ui_text("Start Navigation"));
+  start_mapping_button_->setText(ui_text("Start Mapping"));
+  stop_all_button_->setText(ui_text("Stop All"));
+  set_initial_pose_button_->setText(ui_text("Set Initial Pose"));
+  send_goal_button_->setText(ui_text("Send Goal"));
+  cancel_goal_button_->setText(ui_text("Cancel Goal"));
+  start_patrol_button_->setText(ui_text("Start Patrol"));
+  cancel_patrol_button_->setText(ui_text("Cancel Patrol"));
 
   for (const auto &entry : component_labels_) {
     update_component_label(entry.first);
@@ -248,11 +297,11 @@ void MainWindow::update_component_label(const QString &component) {
   }
   const auto display = component_display_.find(component);
   if (display == component_display_.end()) {
-    label->second->setText(tr("Unknown"));
+    label->second->setText(ui_text("Unknown"));
     return;
   }
   label->second->setText(
-      tr("%1 (PID %2): %3").arg(state_text(display->second.state)).arg(display->second.pid).arg(display->second.detail));
+      ui_text("%1 (PID %2): %3").arg(state_text(display->second.state)).arg(display->second.pid).arg(display->second.detail));
 }
 
 void MainWindow::update_health_label(const QString &topic) {
@@ -262,34 +311,35 @@ void MainWindow::update_health_label(const QString &topic) {
   }
   const auto activity = health_activity_.find(topic);
   if (activity == health_activity_.end()) {
-    label->second->setText(tr("Unknown"));
+    label->second->setText(ui_text("Unknown"));
     return;
   }
-  label->second->setText(activity->second ? tr("Active") : tr("Inactive"));
+  label->second->setText(activity->second ? ui_text("Active") : ui_text("Inactive"));
 }
 
 void MainWindow::update_patrol_progress_label() {
   if (!has_patrol_progress_) {
-    patrol_progress_->setText(tr("Idle"));
+    patrol_progress_->setText(ui_text("Idle"));
     return;
   }
-  patrol_progress_->setText(tr("%1/%2: %3").arg(patrol_current_).arg(patrol_total_).arg(patrol_point_));
+  patrol_progress_->setText(
+      ui_text("%1/%2: %3").arg(patrol_current_).arg(patrol_total_).arg(patrol_point_));
 }
 
-QString MainWindow::state_text(int state) {
+QString MainWindow::state_text(int state) const {
   switch (state) {
     case ConsoleState::kStopped:
-      return tr("Stopped");
+      return ui_text("Stopped");
     case ConsoleState::kStarting:
-      return tr("Starting");
+      return ui_text("Starting");
     case ConsoleState::kRunning:
-      return tr("Running");
+      return ui_text("Running");
     case ConsoleState::kStopping:
-      return tr("Stopping");
+      return ui_text("Stopping");
     case ConsoleState::kError:
-      return tr("Error");
+      return ui_text("Error");
     default:
-      return tr("Unknown");
+      return ui_text("Unknown");
   }
 }
 
@@ -304,7 +354,7 @@ void MainWindow::update_component(const QString &component, int state, int pid, 
   if (component == "navigation") {
     console_state_.navigation_state = state;
   }
-  append_log(tr("%1: %2").arg(component, detail));
+  append_log(ui_text("%1: %2").arg(component, detail));
 }
 
 void MainWindow::update_health(const QString &topic, bool active) {

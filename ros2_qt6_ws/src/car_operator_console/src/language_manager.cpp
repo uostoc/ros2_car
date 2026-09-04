@@ -46,24 +46,21 @@ bool LanguageManager::set_language(const QString &language) {
   const QString resource_file = QString(":/i18n/%1.qm").arg(translation_file);
   const bool loaded = candidate->load(resource_file) ||
                       candidate->load(translation_file, translations_directory_);
-  if (!loaded && requested_language == "zh_CN") {
-    qWarning().noquote() << "Unable to load the Simplified Chinese translation from"
-                          << resource_file << "or" << translations_directory_;
-    language_ = kDefaultLanguage;
+  if (!loaded) {
     translator_.reset();
-    QSettings().setValue(kLanguageSettingsKey, language_);
-    emit language_changed(language_);
-    return false;
+    if (requested_language == "zh_CN") {
+      qWarning().noquote() << "Unable to load the Simplified Chinese translation from"
+                            << resource_file << "or" << translations_directory_;
+    }
+  } else {
+    translator_ = std::move(candidate);
+    QCoreApplication::installTranslator(translator_.get());
   }
 
   language_ = requested_language;
-  translator_ = std::move(candidate);
-  if (loaded) {
-    QCoreApplication::installTranslator(translator_.get());
-  }
   QSettings().setValue(kLanguageSettingsKey, language_);
   emit language_changed(language_);
-  return true;
+  return loaded;
 }
 
 QString LanguageManager::normalize_language(const QString &language) {
