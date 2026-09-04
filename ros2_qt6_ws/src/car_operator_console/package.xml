@@ -6,6 +6,7 @@
   <maintainer email="maintainer@example.com">ROS 2 Car Maintainers</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>ament_index_cpp</build_depend>
   <build_depend>car_control_interfaces</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>nav2_msgs</build_depend>
@@ -14,6 +15,7 @@
   <build_depend>rclcpp_action</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <exec_depend>car_control_interfaces</exec_depend>
+  <exec_depend>ament_index_cpp</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav2_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>

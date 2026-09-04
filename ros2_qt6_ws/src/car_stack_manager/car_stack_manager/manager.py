@@ -204,6 +204,10 @@ class CarStackManager(Node):
         self._publish_status(component, self._STATE_BY_NAME[state], pid, detail)
 
     def _publish_status(self, component: str, state: int, pid: int, detail: str) -> None:
+        # Ctrl+C can invalidate the global ROS context before final cleanup.
+        # Continue stopping child processes, but do not publish on an invalid context.
+        if not rclpy.ok():
+            return
         message = ComponentStatus()
         message.component = component
         message.state = state
@@ -226,4 +230,5 @@ def main(args=None) -> None:
     finally:
         manager.shutdown()
         manager.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()

@@ -9,6 +9,8 @@
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   QApplication application(argc, argv);
+  QCoreApplication::setOrganizationName("ROS 2 Car");
+  QCoreApplication::setOrganizationDomain("ros2-car.local");
   QCoreApplication::setApplicationName("ROS 2 Car Console");
   QCommandLineParser parser;
   parser.setApplicationDescription("Qt 6 console for the ROS 2 car");

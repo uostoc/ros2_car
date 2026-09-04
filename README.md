@@ -20,7 +20,7 @@ and a Qt 6 operator console. The original material remains in the ignored
 
 ## Build on Ubuntu 22.04
 
-Install ROS 2 Humble, Qt 6 Widgets development files, and the ROS packages
+Install ROS 2 Humble, Qt 6 Widgets and Qt Linguist development tools, and the ROS packages
 listed in `docs/operations.md`. Then run:
 
 ```bash
@@ -52,3 +52,7 @@ cd /path/to/ros2_qt6_ws
 source install/setup.bash
 ros2 run car_operator_console car_operator_console
 ```
+
+Use the **Language** menu in the console to switch between English and
+Simplified Chinese. The selection takes effect immediately and is remembered
+for future launches on that computer.

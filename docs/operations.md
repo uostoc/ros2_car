@@ -5,7 +5,7 @@
 The supported runtime is Ubuntu 22.04 with ROS 2 Humble and Qt 6.
 
 ```bash
-sudo apt install qt6-base-dev qt6-base-dev-tools \
+sudo apt install qt6-base-dev qt6-base-dev-tools qt6-tools-dev qt6-l10n-tools \
   ros-humble-nav2-bringup ros-humble-nav2-map-server \
   ros-humble-robot-localization ros-humble-cartographer \
   ros-humble-cartographer-ros
@@ -47,6 +47,11 @@ The vehicle and operator computers must use the same `ROS_DOMAIN_ID` and be on
 a network that permits ROS 2 DDS discovery. The Qt console has no SSH password
 or private-key configuration: it controls the vehicle through these ROS 2
 interfaces.
+
+The console menu bar provides **Language**, with English and Simplified Chinese
+options. The selected language is applied immediately and remembered for the
+next launch on that computer; the first launch uses English. ROS service and
+action error details are shown as received from the vehicle.
 
 ## Operating modes
 

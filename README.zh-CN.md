@@ -18,7 +18,7 @@ Agent、车载端进程管理服务、路线巡检节点和 Qt 6 操作员控制
 
 ## 在 Ubuntu 22.04 上构建
 
-安装 ROS 2 Humble、Qt 6 Widgets 开发文件以及 `docs/operations.md` 中列出的
+安装 ROS 2 Humble、Qt 6 Widgets 与 Qt Linguist 开发工具，以及 `docs/operations.md` 中列出的
 ROS 软件包，然后执行：
 
 ```bash
@@ -50,3 +50,6 @@ cd /path/to/ros2_qt6_ws
 source install/setup.bash
 ros2 run car_operator_console car_operator_console
 ```
+
+通过控制台菜单栏中的“语言”在 English 与简体中文之间切换。选择会立即生效，并在该
+计算机后续启动时自动恢复。

@@ -1,5 +1,7 @@
 #include "car_operator_console/main_window.hpp"
 
+#include <QAction>
+#include <QActionGroup>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -8,6 +10,8 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -33,115 +37,156 @@ QDoubleSpinBox *make_coordinate_input(QWidget *parent, double minimum, double ma
 
 }  // namespace
 
-MainWindow::MainWindow(const QString &mode, QWidget *parent) : QMainWindow(parent), bridge_(this) {
-  setWindowTitle(QString("ROS 2 Car Console — %1").arg(mode));
+MainWindow::MainWindow(
+    const QString &mode, QWidget *parent, const QString &translations_directory)
+    : QMainWindow(parent),
+      bridge_(this),
+      language_manager_(translations_directory, this),
+      mode_(mode) {
   resize(980, 680);
+
+  language_menu_ = menuBar()->addMenu(QString());
+  language_menu_->setObjectName("languageMenu");
+  language_action_group_ = new QActionGroup(this);
+  language_action_group_->setExclusive(true);
+  english_action_ = language_menu_->addAction(QString());
+  simplified_chinese_action_ = language_menu_->addAction(QString());
+  english_action_->setObjectName("englishLanguageAction");
+  simplified_chinese_action_->setObjectName("simplifiedChineseLanguageAction");
+  english_action_->setCheckable(true);
+  simplified_chinese_action_->setCheckable(true);
+  language_action_group_->addAction(english_action_);
+  language_action_group_->addAction(simplified_chinese_action_);
+  connect(english_action_, &QAction::triggered, this, [this](bool checked) {
+    if (checked) {
+      language_manager_.set_language("en");
+    }
+  });
+  connect(simplified_chinese_action_, &QAction::triggered, this, [this](bool checked) {
+    if (checked) {
+      language_manager_.set_language("zh_CN");
+    }
+  });
 
   auto *central = new QWidget(this);
   auto *layout = new QVBoxLayout(central);
 
-  auto *health_group = new QGroupBox("Vehicle health", central);
-  auto *health_layout = new QGridLayout(health_group);
+  health_group_ = new QGroupBox(central);
+  auto *health_layout = new QGridLayout(health_group_);
   for (const QString name : {"agent", "lidar", "bringup", "navigation", "mapping", "patrol", "/scan", "/odom", "/imu", "/map"}) {
-    auto *label = new QLabel("Unknown", health_group);
-    health_layout->addWidget(new QLabel(name, health_group), health_layout->rowCount(), 0);
-    health_layout->addWidget(label, health_layout->rowCount() - 1, 1);
+    const int row = health_layout->rowCount();
+    auto *label = new QLabel(health_group_);
+    health_layout->addWidget(new QLabel(name, health_group_), row, 0);
+    health_layout->addWidget(label, row, 1);
     if (name.startsWith('/')) {
       health_labels_[name] = label;
     } else {
       component_labels_[name] = label;
     }
   }
-  layout->addWidget(health_group);
+  layout->addWidget(health_group_);
 
-  auto *stack_group = new QGroupBox("Stack management", central);
-  auto *stack_layout = new QHBoxLayout(stack_group);
-  auto *map_input = new QComboBox(stack_group);
+  stack_group_ = new QGroupBox(central);
+  auto *stack_layout = new QHBoxLayout(stack_group_);
+  auto *map_input = new QComboBox(stack_group_);
   map_input->addItems({"bot202505_map.yaml", "bot20250623_map.yaml", "fishbot_map.yaml", "test_map.yaml"});
-  auto *start_base = make_button("Start Base", stack_group);
-  auto *start_navigation = make_button("Start Navigation", stack_group);
-  auto *start_mapping = make_button("Start Mapping", stack_group);
-  auto *stop_all = make_button("Stop All", stack_group);
-  stack_layout->addWidget(new QLabel("Navigation map", stack_group));
+  map_label_ = new QLabel(stack_group_);
+  start_base_button_ = make_button(QString(), stack_group_);
+  start_navigation_button_ = make_button(QString(), stack_group_);
+  start_mapping_button_ = make_button(QString(), stack_group_);
+  stop_all_button_ = make_button(QString(), stack_group_);
+  stack_layout->addWidget(map_label_);
   stack_layout->addWidget(map_input);
-  stack_layout->addWidget(start_base);
-  stack_layout->addWidget(start_navigation);
-  stack_layout->addWidget(start_mapping);
-  stack_layout->addWidget(stop_all);
-  layout->addWidget(stack_group);
-  connect(start_base, &QPushButton::clicked, &bridge_, [this] { bridge_.start_stack("base"); });
-  connect(start_navigation, &QPushButton::clicked, &bridge_, [this, map_input] {
+  stack_layout->addWidget(start_base_button_);
+  stack_layout->addWidget(start_navigation_button_);
+  stack_layout->addWidget(start_mapping_button_);
+  stack_layout->addWidget(stop_all_button_);
+  layout->addWidget(stack_group_);
+  connect(start_base_button_, &QPushButton::clicked, &bridge_, [this] { bridge_.start_stack("base"); });
+  connect(start_navigation_button_, &QPushButton::clicked, &bridge_, [this, map_input] {
     bridge_.start_stack("navigation", map_input->currentText());
   });
-  connect(start_mapping, &QPushButton::clicked, &bridge_, [this] { bridge_.start_stack("mapping"); });
-  connect(stop_all, &QPushButton::clicked, &bridge_, [this] { bridge_.stop_stack("all"); });
+  connect(start_mapping_button_, &QPushButton::clicked, &bridge_, [this] { bridge_.start_stack("mapping"); });
+  connect(stop_all_button_, &QPushButton::clicked, &bridge_, [this] { bridge_.stop_stack("all"); });
 
-  auto *navigation_group = new QGroupBox("Navigation (map frame, yaw in degrees)", central);
-  auto *navigation_layout = new QFormLayout(navigation_group);
-  x_input_ = make_coordinate_input(navigation_group, -100.0, 100.0, 0.0);
-  y_input_ = make_coordinate_input(navigation_group, -100.0, 100.0, 0.0);
-  yaw_input_ = make_coordinate_input(navigation_group, -360.0, 360.0, 0.0);
-  navigation_layout->addRow("X", x_input_);
-  navigation_layout->addRow("Y", y_input_);
-  navigation_layout->addRow("Yaw", yaw_input_);
+  navigation_group_ = new QGroupBox(central);
+  auto *navigation_layout = new QFormLayout(navigation_group_);
+  x_input_ = make_coordinate_input(navigation_group_, -100.0, 100.0, 0.0);
+  y_input_ = make_coordinate_input(navigation_group_, -100.0, 100.0, 0.0);
+  yaw_input_ = make_coordinate_input(navigation_group_, -360.0, 360.0, 0.0);
+  x_label_ = new QLabel(navigation_group_);
+  y_label_ = new QLabel(navigation_group_);
+  yaw_label_ = new QLabel(navigation_group_);
+  navigation_layout->addRow(x_label_, x_input_);
+  navigation_layout->addRow(y_label_, y_input_);
+  navigation_layout->addRow(yaw_label_, yaw_input_);
   auto *navigation_buttons = new QHBoxLayout();
-  auto *set_initial = make_button("Set Initial Pose", navigation_group);
-  auto *send_goal = make_button("Send Goal", navigation_group);
-  auto *cancel_goal = make_button("Cancel Goal", navigation_group);
-  navigation_buttons->addWidget(set_initial);
-  navigation_buttons->addWidget(send_goal);
-  navigation_buttons->addWidget(cancel_goal);
+  set_initial_pose_button_ = make_button(QString(), navigation_group_);
+  send_goal_button_ = make_button(QString(), navigation_group_);
+  cancel_goal_button_ = make_button(QString(), navigation_group_);
+  navigation_buttons->addWidget(set_initial_pose_button_);
+  navigation_buttons->addWidget(send_goal_button_);
+  navigation_buttons->addWidget(cancel_goal_button_);
   navigation_layout->addRow(navigation_buttons);
-  layout->addWidget(navigation_group);
-  connect(set_initial, &QPushButton::clicked, this, [this] {
+  layout->addWidget(navigation_group_);
+  connect(set_initial_pose_button_, &QPushButton::clicked, this, [this] {
     bridge_.set_initial_pose(x_input_->value(), y_input_->value(), yaw_input_->value());
   });
-  connect(send_goal, &QPushButton::clicked, this, [this] {
+  connect(send_goal_button_, &QPushButton::clicked, this, [this] {
     if (!console_state_.can_navigate()) {
-      append_log("Navigation stack is not running");
+      append_log(tr("Navigation stack is not running"));
       return;
     }
     bridge_.send_navigation_goal(x_input_->value(), y_input_->value(), yaw_input_->value());
   });
-  connect(cancel_goal, &QPushButton::clicked, &bridge_, &RosBridge::cancel_navigation);
+  connect(cancel_goal_button_, &QPushButton::clicked, &bridge_, &RosBridge::cancel_navigation);
 
-  auto *patrol_group = new QGroupBox("Navigation-only patrol", central);
-  auto *patrol_layout = new QHBoxLayout(patrol_group);
-  route_input_ = new QComboBox(patrol_group);
+  patrol_group_ = new QGroupBox(central);
+  auto *patrol_layout = new QHBoxLayout(patrol_group_);
+  route_label_ = new QLabel(patrol_group_);
+  route_input_ = new QComboBox(patrol_group_);
   route_input_->addItem("default");
-  auto *start_patrol = make_button("Start Patrol", patrol_group);
-  auto *cancel_patrol = make_button("Cancel Patrol", patrol_group);
-  patrol_progress_ = new QLabel("Idle", patrol_group);
+  start_patrol_button_ = make_button(QString(), patrol_group_);
+  cancel_patrol_button_ = make_button(QString(), patrol_group_);
+  patrol_progress_ = new QLabel(patrol_group_);
+  patrol_layout->addWidget(route_label_);
   patrol_layout->addWidget(route_input_);
-  patrol_layout->addWidget(start_patrol);
-  patrol_layout->addWidget(cancel_patrol);
+  patrol_layout->addWidget(start_patrol_button_);
+  patrol_layout->addWidget(cancel_patrol_button_);
   patrol_layout->addWidget(patrol_progress_);
-  layout->addWidget(patrol_group);
-  connect(start_patrol, &QPushButton::clicked, this, [this] {
+  layout->addWidget(patrol_group_);
+  connect(start_patrol_button_, &QPushButton::clicked, this, [this] {
     if (!console_state_.can_navigate()) {
-      append_log("Navigation stack is not running");
+      append_log(tr("Navigation stack is not running"));
       return;
     }
     bridge_.start_patrol(route_input_->currentText());
   });
-  connect(cancel_patrol, &QPushButton::clicked, &bridge_, &RosBridge::cancel_patrol);
+  connect(cancel_patrol_button_, &QPushButton::clicked, &bridge_, &RosBridge::cancel_patrol);
 
   log_ = new QPlainTextEdit(central);
   log_->setReadOnly(true);
   layout->addWidget(log_, 1);
   setCentralWidget(central);
 
+  connect(&language_manager_, &LanguageManager::language_changed, this,
+          [this](const QString &) { retranslate_ui(); });
   connect(&bridge_, &RosBridge::component_status, this, &MainWindow::update_component);
   connect(&bridge_, &RosBridge::topic_health, this, &MainWindow::update_health);
   connect(&bridge_, &RosBridge::manager_reply, this, [this](bool success, const QString &message) {
-    append_log(QString("Manager: %1 — %2").arg(success ? "ok" : "error", message));
+    append_log(tr("Manager: %1 — %2").arg(success ? tr("OK") : tr("Error"), message));
   });
   connect(&bridge_, &RosBridge::navigation_status, this, &MainWindow::append_log);
   connect(&bridge_, &RosBridge::patrol_status, this, &MainWindow::append_log);
   connect(&bridge_, &RosBridge::patrol_progress, this,
           [this](unsigned int current, unsigned int total, const QString &point) {
-            patrol_progress_->setText(QString("%1/%2: %3").arg(current).arg(total).arg(point));
+            has_patrol_progress_ = true;
+            patrol_current_ = current;
+            patrol_total_ = total;
+            patrol_point_ = point;
+            update_patrol_progress_label();
           });
+  retranslate_ui();
   bridge_.start();
 }
 
@@ -154,43 +199,117 @@ void MainWindow::closeEvent(QCloseEvent *event) {
 
 void MainWindow::append_log(const QString &message) { log_->appendPlainText(message); }
 
+void MainWindow::retranslate_ui() {
+  QString mode_text = mode_;
+  if (mode_ == "vehicle") {
+    mode_text = tr("vehicle");
+  } else if (mode_ == "operator") {
+    mode_text = tr("operator");
+  }
+  setWindowTitle(tr("ROS 2 Car Console — %1").arg(mode_text));
+  language_menu_->setTitle(tr("Language"));
+  english_action_->setText(tr("English"));
+  simplified_chinese_action_->setText(tr("Simplified Chinese"));
+  english_action_->setChecked(language_manager_.language() == "en");
+  simplified_chinese_action_->setChecked(language_manager_.language() == "zh_CN");
+
+  health_group_->setTitle(tr("Vehicle health"));
+  stack_group_->setTitle(tr("Stack management"));
+  navigation_group_->setTitle(tr("Navigation (map frame, yaw in degrees)"));
+  patrol_group_->setTitle(tr("Navigation-only patrol"));
+  map_label_->setText(tr("Navigation map"));
+  x_label_->setText(tr("X"));
+  y_label_->setText(tr("Y"));
+  yaw_label_->setText(tr("Yaw"));
+  route_label_->setText(tr("Route"));
+  start_base_button_->setText(tr("Start Base"));
+  start_navigation_button_->setText(tr("Start Navigation"));
+  start_mapping_button_->setText(tr("Start Mapping"));
+  stop_all_button_->setText(tr("Stop All"));
+  set_initial_pose_button_->setText(tr("Set Initial Pose"));
+  send_goal_button_->setText(tr("Send Goal"));
+  cancel_goal_button_->setText(tr("Cancel Goal"));
+  start_patrol_button_->setText(tr("Start Patrol"));
+  cancel_patrol_button_->setText(tr("Cancel Patrol"));
+
+  for (const auto &entry : component_labels_) {
+    update_component_label(entry.first);
+  }
+  for (const auto &entry : health_labels_) {
+    update_health_label(entry.first);
+  }
+  update_patrol_progress_label();
+}
+
+void MainWindow::update_component_label(const QString &component) {
+  const auto label = component_labels_.find(component);
+  if (label == component_labels_.end()) {
+    return;
+  }
+  const auto display = component_display_.find(component);
+  if (display == component_display_.end()) {
+    label->second->setText(tr("Unknown"));
+    return;
+  }
+  label->second->setText(
+      tr("%1 (PID %2): %3").arg(state_text(display->second.state)).arg(display->second.pid).arg(display->second.detail));
+}
+
+void MainWindow::update_health_label(const QString &topic) {
+  const auto label = health_labels_.find(topic);
+  if (label == health_labels_.end()) {
+    return;
+  }
+  const auto activity = health_activity_.find(topic);
+  if (activity == health_activity_.end()) {
+    label->second->setText(tr("Unknown"));
+    return;
+  }
+  label->second->setText(activity->second ? tr("Active") : tr("Inactive"));
+}
+
+void MainWindow::update_patrol_progress_label() {
+  if (!has_patrol_progress_) {
+    patrol_progress_->setText(tr("Idle"));
+    return;
+  }
+  patrol_progress_->setText(tr("%1/%2: %3").arg(patrol_current_).arg(patrol_total_).arg(patrol_point_));
+}
+
 QString MainWindow::state_text(int state) {
   switch (state) {
     case ConsoleState::kStopped:
-      return "Stopped";
+      return tr("Stopped");
     case ConsoleState::kStarting:
-      return "Starting";
+      return tr("Starting");
     case ConsoleState::kRunning:
-      return "Running";
+      return tr("Running");
     case ConsoleState::kStopping:
-      return "Stopping";
+      return tr("Stopping");
     case ConsoleState::kError:
-      return "Error";
+      return tr("Error");
     default:
-      return "Unknown";
+      return tr("Unknown");
   }
 }
 
 void MainWindow::update_component(const QString &component, int state, int pid, const QString &detail) {
-  const auto iterator = component_labels_.find(component);
-  if (iterator != component_labels_.end()) {
-    iterator->second->setText(QString("%1 (pid %2): %3").arg(state_text(state)).arg(pid).arg(detail));
-  }
+  component_display_[component] = {state, pid, detail};
+  update_component_label(component);
   const auto health_iterator = health_labels_.find(component);
   if (health_iterator != health_labels_.end()) {
-    health_iterator->second->setText(state == ConsoleState::kRunning ? "Active" : state_text(state));
+    health_activity_[component] = state == ConsoleState::kRunning;
+    update_health_label(component);
   }
   if (component == "navigation") {
     console_state_.navigation_state = state;
   }
-  append_log(QString("%1: %2").arg(component, detail));
+  append_log(tr("%1: %2").arg(component, detail));
 }
 
 void MainWindow::update_health(const QString &topic, bool active) {
-  const auto iterator = health_labels_.find(topic);
-  if (iterator != health_labels_.end()) {
-    iterator->second->setText(active ? "Active" : "Inactive");
-  }
+  health_activity_[topic] = active;
+  update_health_label(topic);
 }
 
 }  // namespace car_operator_console

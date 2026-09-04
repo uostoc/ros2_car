@@ -41,7 +41,7 @@ void RosBridge::start() {
   executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
   executor_->add_node(node_);
   spin_thread_ = std::thread([this]() { executor_->spin(); });
-  emit navigation_status("ROS 2 bridge started");
+  emit navigation_status(tr("ROS 2 bridge started"));
 }
 
 void RosBridge::stop() {
@@ -69,7 +69,7 @@ void RosBridge::stop() {
 void RosBridge::request_stack(
     std::uint8_t command, const QString &component, const QString &profile) {
   if (!manager_client_ || !manager_client_->service_is_ready()) {
-    emit manager_reply(false, "Vehicle stack manager is unavailable");
+    emit manager_reply(false, tr("Vehicle stack manager is unavailable"));
     return;
   }
   auto request = std::make_shared<ManageStack::Request>();
@@ -109,16 +109,16 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosBridge::make_initial_pose(
 
 void RosBridge::set_initial_pose(double x, double y, double yaw_degrees) {
   if (!initial_pose_publisher_) {
-    emit navigation_status("ROS 2 bridge is not running");
+    emit navigation_status(tr("ROS 2 bridge is not running"));
     return;
   }
   initial_pose_publisher_->publish(make_initial_pose(x, y, yaw_degrees));
-  emit navigation_status("Initial pose published");
+  emit navigation_status(tr("Initial pose published"));
 }
 
 void RosBridge::send_navigation_goal(double x, double y, double yaw_degrees) {
   if (!navigation_client_ || !navigation_client_->action_server_is_ready()) {
-    emit navigation_status("Nav2 NavigateToPose action is unavailable");
+    emit navigation_status(tr("Nav2 NavigateToPose action is unavailable"));
     return;
   }
   NavigateToPose::Goal goal;
@@ -129,30 +129,30 @@ void RosBridge::send_navigation_goal(double x, double y, double yaw_degrees) {
   options.goal_response_callback = [this](const auto &goal_handle) {
     std::lock_guard<std::mutex> lock(goal_mutex_);
     navigation_goal_ = goal_handle;
-    emit navigation_status(goal_handle ? "Navigation goal accepted" : "Navigation goal rejected");
+    emit navigation_status(goal_handle ? tr("Navigation goal accepted") : tr("Navigation goal rejected"));
   };
   options.result_callback = [this](const auto &result) {
     std::lock_guard<std::mutex> lock(goal_mutex_);
     navigation_goal_.reset();
-    emit navigation_status(QString("Navigation finished with result %1").arg(static_cast<int>(result.code)));
+    emit navigation_status(tr("Navigation finished with result %1").arg(static_cast<int>(result.code)));
   };
   navigation_client_->async_send_goal(goal, options);
-  emit navigation_status("Navigation goal sent");
+  emit navigation_status(tr("Navigation goal sent"));
 }
 
 void RosBridge::cancel_navigation() {
   std::lock_guard<std::mutex> lock(goal_mutex_);
   if (!navigation_client_ || !navigation_goal_) {
-    emit navigation_status("No active navigation goal");
+    emit navigation_status(tr("No active navigation goal"));
     return;
   }
   navigation_client_->async_cancel_goal(navigation_goal_);
-  emit navigation_status("Navigation cancel requested");
+  emit navigation_status(tr("Navigation cancel requested"));
 }
 
 void RosBridge::start_patrol(const QString &route_name) {
   if (!patrol_client_ || !patrol_client_->action_server_is_ready()) {
-    emit patrol_status("Patrol action server is unavailable");
+    emit patrol_status(tr("Patrol action server is unavailable"));
     return;
   }
   RunPatrol::Goal goal;
@@ -161,7 +161,7 @@ void RosBridge::start_patrol(const QString &route_name) {
   options.goal_response_callback = [this](const auto &goal_handle) {
     std::lock_guard<std::mutex> lock(goal_mutex_);
     patrol_goal_ = goal_handle;
-    emit patrol_status(goal_handle ? "Patrol accepted" : "Patrol rejected");
+    emit patrol_status(goal_handle ? tr("Patrol accepted") : tr("Patrol rejected"));
   };
   options.feedback_callback = [this](auto, const auto feedback) {
     emit patrol_progress(feedback->current_index, feedback->total_points,
@@ -178,11 +178,11 @@ void RosBridge::start_patrol(const QString &route_name) {
 void RosBridge::cancel_patrol() {
   std::lock_guard<std::mutex> lock(goal_mutex_);
   if (!patrol_client_ || !patrol_goal_) {
-    emit patrol_status("No active patrol");
+    emit patrol_status(tr("No active patrol"));
     return;
   }
   patrol_client_->async_cancel_goal(patrol_goal_);
-  emit patrol_status("Patrol cancel requested");
+  emit patrol_status(tr("Patrol cancel requested"));
 }
 
 }  // namespace car_operator_console
