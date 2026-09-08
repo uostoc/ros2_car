@@ -1,0 +1,176 @@
+<?xml version="1.0"?>
+<robot name="fishbot">
+    <!-- Robot Footprint -->
+  <link name="base_footprint"/>
+  <!-- base link -->
+  <link name="base_link">
+        <visual>
+      <origin xyz="0 0 0.0" rpy="0 0 0"/>
+      <geometry>
+                <box size="0.32 0.23 0.005"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1.0 1.0 1.0 0.7" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.32 0.23 0.005"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0.0 0.0 0.11" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link_l">
+        <visual>
+      <origin xyz="0 0 0.0" rpy="0 0 0"/>
+      <geometry>
+                <box size="0.174 0.045 0.005"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1.0 1.0 1.0 0.7" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="base_link_l_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_link_l"/>
+    <origin xyz="-0.073 0.1375 0.0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link_r">
+        <visual>
+      <origin xyz="0 0 0.0" rpy="0 0 0"/>
+      <geometry>
+                <box size="0.174 0.045 0.005"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1.0 1.0 1.0 0.7" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="base_link_r_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_link_r"/>
+    <origin xyz="-0.073 -0.1375 0.0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="left_wheel_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="1.57079 0 0"/>
+        <geometry>
+          <cylinder length="0.04" radius="0.048"/>
+        </geometry>
+          <material name="black">
+            <color rgba="0.0 0.0 0.0 0.7" />
+          </material>
+      </visual>
+  </link>
+
+  <joint name="left_wheel_joint" type="continuous">
+      <parent link="base_link" />
+      <child link="left_wheel_link" />
+      <origin xyz="0.090 0.148 -0.048" />
+      <axis xyz="0 1 0" />
+  </joint>
+
+  <link name="right_wheel_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="1.57079 0 0"/>
+        <geometry>
+          <cylinder length="0.04" radius="0.048"/>
+        </geometry>
+          <material name="black">
+            <color rgba="0.0 0.0 0.0 0.7" />
+          </material>
+      </visual>
+  </link>
+
+  <joint name="right_wheel_joint" type="continuous">
+      <parent link="base_link" />
+      <child link="right_wheel_link" />
+      <origin xyz="0.090 -0.148 -0.048" />
+      <axis xyz="0 1 0" />
+  </joint>
+
+  <link name="caster_link_l">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57079 0 0"/>
+      <geometry>
+          <sphere radius="0.03"/>
+      </geometry>
+        <material name="black">
+          <color rgba="0.0 0.0 0.0 0.5" />
+        </material>
+    </visual>
+  </link>
+
+  <joint name="caster_joint_l" type="fixed">
+      <parent link="base_link" />
+      <child link="caster_link_l" />
+      <origin xyz="-0.11 0.108 -0.07" />
+      <axis xyz="1 1 1" />
+  </joint>
+
+  <link name="caster_link_r">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57079 0 0"/>
+      <geometry>
+          <sphere radius="0.03"/>
+      </geometry>
+        <material name="black">
+          <color rgba="0.0 0.0 0.0 0.5" />
+        </material>
+    </visual>
+  </link>
+
+  <joint name="caster_joint_r" type="fixed">
+      <parent link="base_link" />
+      <child link="caster_link_r" />
+      <origin xyz="-0.11 -0.108 -0.07" />
+      <axis xyz="1 1 1" />
+  </joint>
+
+  <!-- laser link -->
+  <link name="laser_frame">
+        <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+                <cylinder length="0.02" radius="0.02"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.0 0.0 0.0 0.075" />
+      </material>
+    </visual>
+  </link>
+
+  <!-- laser joint -->
+  <joint name="laser_joint" type="fixed">
+      <parent link="base_link" />
+      <child link="laser_frame" />
+      <origin xyz="0.0 0.0 0.075" />
+  </joint>
+
+  <link name="imu_link">
+        <visual>
+      <origin xyz="0 0 0.0" rpy="0 0 0"/>
+      <geometry>
+                    <box size="0.01 0.01 0.01"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- imu joint -->
+  <joint name="imu_joint" type="fixed">
+      <parent link="base_link" />
+      <child link="imu_link" />
+      <origin xyz="0.0 0.0 0.040" />
+  </joint>
+
+</robot>
