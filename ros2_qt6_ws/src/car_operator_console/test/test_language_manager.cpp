@@ -1,8 +1,12 @@
 #include <QAction>
 #include <QCoreApplication>
+#include <QLabel>
 #include <QMenu>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QTabWidget>
 #include <QtTest/QtTest>
 
 #include <rclcpp/rclcpp.hpp>
@@ -93,6 +97,41 @@ class LanguageManagerTest final : public QObject {
     QVERIFY(chinese->isChecked());
     QVERIFY(!english->isChecked());
     QCOMPARE(window.windowTitle(), QString("ROS 2 小车控制台 — 操作员端"));
+  }
+
+  void main_content_scrolls_vertically_only_when_needed() {
+    QSettings settings;
+    settings.setValue("ui/language", "en");
+    car_operator_console::MainWindow window(
+        "operator", nullptr, "translations-that-do-not-exist");
+    auto *scroll_area = window.findChild<QScrollArea *>("mainContentScrollArea");
+
+    QVERIFY(scroll_area != nullptr);
+    QCOMPARE(scroll_area->verticalScrollBarPolicy(), Qt::ScrollBarAsNeeded);
+    QCOMPARE(scroll_area->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+
+    window.resize(900, 620);
+    window.show();
+    QTest::qWait(20);
+    QVERIFY(scroll_area->verticalScrollBar()->maximum() > 0);
+
+    window.resize(1400, 1600);
+    QTest::qWait(20);
+    QCOMPARE(scroll_area->verticalScrollBar()->maximum(), 0);
+  }
+
+  void map_view_is_available_without_initializing_rviz() {
+    QSettings settings;
+    settings.setValue("ui/language", "en");
+    car_operator_console::MainWindow window(
+        "operator", nullptr, "translations-that-do-not-exist");
+    auto *tabs = window.findChild<QTabWidget *>("mainTabs");
+
+    QVERIFY(tabs != nullptr);
+    QCOMPARE(tabs->count(), 2);
+    QCOMPARE(tabs->tabText(0), QString("Console"));
+    QCOMPARE(tabs->tabText(1), QString("Map view"));
+    QVERIFY(window.findChild<QLabel *>("rvizPlaceholder") != nullptr);
   }
 };
 

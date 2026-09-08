@@ -4,17 +4,18 @@
 
 ## Prerequisites
 
-The supported runtime is Ubuntu 22.04 with ROS 2 Humble and Qt 6.
+The supported runtime is Ubuntu 24.04 with ROS 2 Jazzy, Qt 5, and embedded RViz.
 
 ```bash
-sudo apt install qt6-base-dev qt6-base-dev-tools qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
-  ros-humble-nav2-bringup ros-humble-nav2-map-server \
-  ros-humble-robot-localization ros-humble-cartographer \
-  ros-humble-cartographer-ros
+sudo apt install qtbase5-dev qttools5-dev qttools5-dev-tools \
+  ros-jazzy-navigation2 ros-jazzy-robot-localization ros-jazzy-cartographer \
+  ros-jazzy-cartographer-ros ros-jazzy-rviz2 ros-jazzy-nav2-rviz-plugins
 ```
 
 Run `rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python`
-in `ros2_qt6_ws` to install package-level dependencies as well. `ament_python`
+in `ros2_qt6_ws` to install package-level dependencies as well. The directory
+name is retained for compatibility; the operator console itself uses Qt 5.
+`ament_python`
 is supplied by the sourced ROS 2 environment and has no Ubuntu rosdep key.
 
 ## Device configuration
@@ -55,6 +56,12 @@ The console menu bar provides **Language**, with English and Simplified Chinese
 options. The selected language is applied immediately and remembered for the
 next launch on that computer; the first launch uses English. ROS service and
 action error details are shown as received from the vehicle.
+
+The **Map view** tab lazily starts an embedded RViz instance. It uses `map` as
+the fixed frame and includes `/map`, `/scan`, TF, and robot-model displays.
+Use RViz **2D Pose Estimate** to publish `/initialpose` and **Nav2 Goal** to
+send `navigate_to_pose` goals. The console coordinate controls remain available
+for precise input.
 
 ## Operating modes
 

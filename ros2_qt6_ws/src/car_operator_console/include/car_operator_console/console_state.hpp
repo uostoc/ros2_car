@@ -10,8 +10,16 @@ struct ConsoleState {
   static constexpr int kError = 4;
 
   int navigation_state{kStopped};
+  int mapping_state{kStopped};
 
   bool can_navigate() const { return navigation_state == kRunning; }
+  bool can_start_navigation() const {
+    return navigation_state == kStopped || navigation_state == kError;
+  }
+  bool can_start_mapping() const {
+    return mapping_state == kStopped || mapping_state == kError;
+  }
+  bool is_mapping() const { return mapping_state == kRunning; }
 };
 
 }  // namespace car_operator_console

@@ -14,6 +14,20 @@ class ConsoleStateTest final : public QObject {
     state.navigation_state = car_operator_console::ConsoleState::kError;
     QVERIFY(!state.can_navigate());
   }
+
+  void blocks_repeated_mode_starts_while_a_transition_is_in_progress() {
+    car_operator_console::ConsoleState state;
+    state.navigation_state = car_operator_console::ConsoleState::kStarting;
+    QVERIFY(!state.can_start_navigation());
+    state.navigation_state = car_operator_console::ConsoleState::kRunning;
+    QVERIFY(!state.can_start_navigation());
+    state.navigation_state = car_operator_console::ConsoleState::kError;
+    QVERIFY(state.can_start_navigation());
+    state.mapping_state = car_operator_console::ConsoleState::kStopping;
+    QVERIFY(!state.can_start_mapping());
+    state.mapping_state = car_operator_console::ConsoleState::kRunning;
+    QVERIFY(state.is_mapping());
+  }
 };
 
 QTEST_APPLESS_MAIN(ConsoleStateTest)

@@ -4,19 +4,18 @@
 
 ## 前置条件
 
-支持的运行环境为 Ubuntu 22.04、ROS 2 Humble 和 Qt 6。
+支持的运行环境为 Ubuntu 24.04、ROS 2 Jazzy、Qt 5 和内嵌 RViz。
 
 ```bash
-sudo apt install qt6-base-dev qt6-base-dev-tools qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
-  ros-humble-nav2-bringup ros-humble-nav2-map-server \
-  ros-humble-robot-localization ros-humble-cartographer \
-  ros-humble-cartographer-ros
+sudo apt install qtbase5-dev qttools5-dev qttools5-dev-tools \
+  ros-jazzy-navigation2 ros-jazzy-robot-localization ros-jazzy-cartographer \
+  ros-jazzy-cartographer-ros ros-jazzy-rviz2 ros-jazzy-nav2-rviz-plugins
 ```
 
 在 `ros2_qt6_ws` 中执行
 `rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python`
 安装各功能包的依赖。`ament_python` 由已加载的 ROS 2 环境提供，没有对应的
-Ubuntu rosdep 键。
+Ubuntu rosdep 键。该目录名为兼容已有路径而保留；实际操作员控制台使用 Qt 5。
 
 ## 设备配置
 
@@ -50,6 +49,10 @@ sudo usermod -aG dialout ros
 控制台菜单栏提供**语言**菜单，可选择英文和简体中文。语言切换会立即生效，并在
 同一台电脑上记住；首次启动时使用英文。ROS 服务和 Action 的错误详情会按车载端
 返回的内容显示。
+
+“地图视图”标签页会按需启动内嵌 RViz：固定坐标系为 `map`，默认显示 `/map`、
+`/scan`、TF 和机器人模型。使用 RViz 的 **2D Pose Estimate** 发布 `/initialpose`，
+使用 **Nav2 Goal** 发送 `navigate_to_pose` 目标；控制台坐标输入仍可用于精确操作。
 
 ## 运行模式
 

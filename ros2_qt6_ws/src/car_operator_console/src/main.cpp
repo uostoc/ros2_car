@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
   QCoreApplication::setOrganizationDomain("ros2-car.local");
   QCoreApplication::setApplicationName("ROS 2 Car Console");
   QCommandLineParser parser;
-  parser.setApplicationDescription("Qt 6 console for the ROS 2 car");
+  parser.setApplicationDescription("Qt 5 console with embedded RViz for the ROS 2 car");
   parser.addHelpOption();
   QCommandLineOption mode_option(
       {"m", "mode"}, "Console placement: vehicle or operator.", "mode", "operator");

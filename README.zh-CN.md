@@ -1,10 +1,13 @@
-# ROS 2 + Qt 6 小车控制台
+# ROS 2 + Qt 5 小车控制台
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-本仓库提供一个统一的 ROS 2 Humble 工作区，包含 Fishbot 平台、micro-ROS
-Agent、车载端进程管理服务、路线巡检节点和 Qt 6 操作员控制台。原始资料仍保留在
+本仓库提供一个统一的 ROS 2 Jazzy 工作区，包含 Fishbot 平台、micro-ROS
+Agent、车载端进程管理服务、路线巡检节点和内嵌 RViz 的 Qt 5 操作员控制台。原始资料仍保留在
 被 Git 忽略的 `source/` 目录中，仅作为本地参考。
+
+实体小车的建图、保存地图、定位导航、巡检与排障步骤见
+[小车建图、导航与巡检操作手册](docs/robot-operation.zh-CN.md)。
 
 ## 目录结构
 
@@ -16,13 +19,13 @@ Agent、车载端进程管理服务、路线巡检节点和 Qt 6 操作员控制
   修改设备路径前，请先复制为 `vehicle.local.yaml`。
 - `deploy/`：systemd 和串口设备部署示例。
 
-## 在 Ubuntu 22.04 上构建
+## 在 Ubuntu 24.04 上构建
 
-安装 ROS 2 Humble、Qt 6 Widgets 与 Qt Linguist 开发工具，以及 `docs/operations.zh-CN.md` 中列出的
+安装 ROS 2 Jazzy、Qt 5 Widgets 与 Qt Linguist 开发工具、RViz，以及 `docs/operations.zh-CN.md` 中列出的
 ROS 软件包，然后执行：
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 cd ros2_qt6_ws
 rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python
 colcon build --symlink-install
@@ -40,16 +43,19 @@ ros2 run car_stack_manager car_stack_manager --ros-args \
 
 ## 在新终端中运行
 
-每个新终端都必须先加载 ROS 2 Humble 底层环境和本工作区，然后才能运行任一
-可执行程序。在车载计算机，或同一 ROS 2 DDS 网络中的另一台 Ubuntu 22.04
+每个新终端都必须先加载 ROS 2 Jazzy 底层环境和本工作区，然后才能运行任一
+可执行程序。在车载计算机，或同一 ROS 2 DDS 网络中的另一台 Ubuntu 24.04
 计算机上执行：
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 cd /path/to/ros2_qt6_ws
 source install/setup.bash
 ros2 run car_operator_console car_operator_console
 ```
 
 通过控制台菜单栏中的“语言”在 English 与简体中文之间切换。选择会立即生效，并在该
-计算机后续启动时自动恢复。
+计算机后续启动时自动恢复。“地图视图”标签页会启动内嵌 RViz，提供地图、激光、TF、
+机器人模型、初始位姿和 Nav2 目标点工具。
+
+`ros2_qt6_ws` 是为兼容已有路径而保留的工作区目录名；实际操作员控制台使用 Qt 5。

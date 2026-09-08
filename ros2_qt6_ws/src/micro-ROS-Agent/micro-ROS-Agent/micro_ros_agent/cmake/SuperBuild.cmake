@@ -26,7 +26,10 @@ if(NOT xrceagent_FOUND)
             GIT_REPOSITORY
                 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
             GIT_TAG
-                ros2
+                # v2.4.3 supports the Fast-CDR 2 / Fast DDS 2.14 ABI shipped
+                # with ROS 2 Jazzy.  The legacy `ros2` branch is v2.4.2 and
+                # requires Fast-CDR 1, which Jazzy no longer provides.
+                v2.4.3
             PREFIX
                 ${PROJECT_BINARY_DIR}/agent
             INSTALL_DIR

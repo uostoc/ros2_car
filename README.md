@@ -1,10 +1,10 @@
-# ROS 2 + Qt 6 Car Console
+# ROS 2 + Qt 5 Car Console
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-This repository contains a single ROS 2 Humble workspace for the Fishbot
+This repository contains a single ROS 2 Jazzy workspace for the Fishbot
 platform, micro-ROS Agent, a vehicle-side stack manager, a route patrol node,
-and a Qt 6 operator console. The original material remains in the ignored
+and a Qt 5 operator console with embedded RViz. The original material remains in the ignored
 `source/` directory as a local reference only.
 
 ## Layout
@@ -18,13 +18,13 @@ and a Qt 6 operator console. The original material remains in the ignored
   defaults. Copy it to `vehicle.local.yaml` before changing device paths.
 - `deploy/`: systemd and serial-device deployment examples.
 
-## Build on Ubuntu 22.04
+## Build on Ubuntu 24.04
 
-Install ROS 2 Humble, Qt 6 Widgets and Qt Linguist development tools, and the ROS packages
+Install ROS 2 Jazzy, Qt 5 Widgets and Qt Linguist development tools, RViz, and the ROS packages
 listed in `docs/operations.md`. Then run:
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 cd ros2_qt6_ws
 rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python
 colcon build --symlink-install
@@ -42,12 +42,12 @@ ros2 run car_stack_manager car_stack_manager --ros-args \
 
 ## Run in a New Terminal
 
-Every new shell must load both the ROS 2 Humble underlay and this workspace
+Every new shell must load both the ROS 2 Jazzy underlay and this workspace
 before running either executable. On the vehicle computer or another Ubuntu
-22.04 computer on the same ROS 2 DDS network, run:
+24.04 computer on the same ROS 2 DDS network, run:
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 cd /path/to/ros2_qt6_ws
 source install/setup.bash
 ros2 run car_operator_console car_operator_console
@@ -55,4 +55,8 @@ ros2 run car_operator_console car_operator_console
 
 Use the **Language** menu in the console to switch between English and
 Simplified Chinese. The selection takes effect immediately and is remembered
-for future launches on that computer.
+for future launches on that computer. The **Map view** tab starts an embedded
+RViz view with map, laser, TF, robot model, initial-pose, and Nav2-goal tools.
+
+`ros2_qt6_ws` is a retained workspace directory name for compatibility; the
+operator console itself uses Qt 5.

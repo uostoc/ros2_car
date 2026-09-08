@@ -13,8 +13,10 @@ find_package(nav2_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
+find_package(rviz_common REQUIRED)
+find_package(rviz_default_plugins REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools)
+find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools Test)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -39,9 +41,15 @@ ament_target_dependencies(car_operator_console
   nav_msgs
   rclcpp
   rclcpp_action
+  rviz_common
+  rviz_default_plugins
   sensor_msgs
 )
-target_link_libraries(car_operator_console Qt6::Widgets)
+target_link_libraries(car_operator_console
+  Qt5::Widgets
+  rviz_common::rviz_common
+  rviz_default_plugins::rviz_default_plugins
+)
 
 set(translation_ts_files
   translations/car_operator_console_en.ts
@@ -49,25 +57,22 @@ set(translation_ts_files
 )
 set_source_files_properties(${translation_ts_files}
   PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/translations")
-qt_add_lrelease(car_operator_console
-  TS_FILES ${translation_ts_files}
-  QM_FILES_OUTPUT_VARIABLE translation_qm_files)
-qt_add_resources(car_operator_console "car_operator_console_translation_resources"
-  PREFIX "/i18n"
-  BASE "${CMAKE_CURRENT_BINARY_DIR}/translations"
-  FILES ${translation_qm_files})
+qt5_add_translation(translation_qm_files ${translation_ts_files})
+add_custom_target(car_operator_console_lrelease ALL DEPENDS ${translation_qm_files})
+add_dependencies(car_operator_console car_operator_console_lrelease)
 
 install(TARGETS car_operator_console
   DESTINATION lib/${PROJECT_NAME})
 install(FILES ${translation_qm_files}
   DESTINATION share/${PROJECT_NAME}/translations)
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config)
 
 if(BUILD_TESTING)
-  find_package(Qt6 REQUIRED COMPONENTS Test)
   add_executable(test_console_state test/test_console_state.cpp)
   target_compile_features(test_console_state PUBLIC cxx_std_17)
   target_include_directories(test_console_state PRIVATE include)
-  target_link_libraries(test_console_state Qt6::Test)
+  target_link_libraries(test_console_state Qt5::Test)
   add_test(NAME test_console_state COMMAND test_console_state)
 
   add_executable(test_language_manager
@@ -93,9 +98,16 @@ if(BUILD_TESTING)
     rclcpp_action
     sensor_msgs
   )
-  target_link_libraries(test_language_manager Qt6::Test Qt6::Widgets)
+  target_link_libraries(test_language_manager
+    Qt5::Test
+    Qt5::Widgets
+    rviz_common::rviz_common
+    rviz_default_plugins::rviz_default_plugins)
   add_dependencies(test_language_manager car_operator_console_lrelease)
   add_test(NAME test_language_manager COMMAND test_language_manager)
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_logs")
+  set_tests_properties(test_language_manager PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;ROS_LOG_DIR=${CMAKE_CURRENT_BINARY_DIR}/test_logs")
 endif()
 
 ament_package()
