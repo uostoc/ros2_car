@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import signal
+import os
 import subprocess
 from dataclasses import dataclass
 from typing import Callable, Mapping, Optional, Sequence
@@ -53,20 +54,33 @@ class ProcessRegistry:
 
         self._on_update(name, 'stopping', entry.process.pid, 'interrupt requested')
         try:
-            entry.process.send_signal(signal.SIGINT)
+            # `ros2 run` and `ros2 launch` are wrappers.  They can leave the
+            # actual node alive when only the wrapper receives SIGINT.  Each
+            # process is created as a session leader, so signal its entire
+            # process group to stop the wrapper and every ROS child together.
+            self._signal_group(entry.process.pid, signal.SIGINT)
             entry.process.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired:
-            entry.process.terminate()
+            self._signal_group(entry.process.pid, signal.SIGTERM)
             try:
                 entry.process.wait(timeout=3.0)
             except subprocess.TimeoutExpired:
-                entry.process.kill()
+                self._signal_group(entry.process.pid, signal.SIGKILL)
                 entry.process.wait(timeout=3.0)
         finally:
             self._entries.pop(name, None)
 
         self._on_update(name, 'stopped', 0, 'stopped')
         return True, f'{name} stopped'
+
+    @staticmethod
+    def _signal_group(process_group: int, signal_number: int) -> None:
+        """Signal the session created by :meth:`start` when it still exists."""
+        try:
+            os.killpg(process_group, signal_number)
+        except ProcessLookupError:
+            # A child may have exited between poll() and stop().
+            pass
 
     def poll(self) -> None:
         for name, entry in list(self._entries.items()):

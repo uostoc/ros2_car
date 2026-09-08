@@ -1,5 +1,7 @@
 # ROS 2 Humble vehicle base workspace
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 This workspace is the Ubuntu 22.04 / ROS 2 Humble source tree for the physical
 vehicle's base hardware only. It contains the micro-ROS Agent, C1 lidar driver,
 Fishbot URDF/TF bringup, vehicle process manager, and the DDS interfaces shared
@@ -27,7 +29,7 @@ pinned Micro-XRCE-DDS-Agent dependency (`v2.4.2`).
 ```bash
 source /opt/ros/humble/setup.bash
 cd /opt/ros2-car/microros_ws
-rosdep install --from-paths src --ignore-src -r -y
+rosdep install --from-paths src --ignore-src -r -y --skip-keys ament_python
 colcon build --symlink-install
 source install/setup.bash
 ```

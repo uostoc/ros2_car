@@ -1,3 +1,4 @@
+import signal
 import subprocess
 
 from car_stack_manager.process_registry import ProcessRegistry
@@ -26,15 +27,20 @@ class FakeProcess:
         self._return_code = -9
 
 
-def test_prevents_duplicate_start_and_stops_process():
+def test_prevents_duplicate_start_and_stops_process(monkeypatch):
     updates = []
     process = FakeProcess()
     registry = ProcessRegistry(lambda *args: updates.append(args), lambda *args, **kwargs: process)
+    group_signals = []
+    monkeypatch.setattr(
+        'car_stack_manager.process_registry.os.killpg',
+        lambda process_group, signal: group_signals.append((process_group, signal)))
 
     assert registry.start('agent', ['agent'], {})[0]
     assert not registry.start('agent', ['agent'], {})[0]
     assert registry.stop('agent')[0]
     assert not registry.is_running('agent')
+    assert group_signals == [(process.pid, signal.SIGINT)]
     assert any(state == 'running' for _, state, _, _ in updates)
     assert any(state == 'stopped' for _, state, _, _ in updates)
 
