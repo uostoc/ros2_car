@@ -162,30 +162,21 @@ ros2 launch car_platform_bringup vehicle_stack.launch.py \
 
 ### 4.1 启动 Cartographer
 
-确认基础检查通过后，选择以下一种方式启动建图。
+建图是操作端 Jazzy 工作区中的独立流程；车端 Humble 工作区只提供基础硬件话题，
+不安装也不接受 `mapping` 管理命令。确认基础检查通过后，选择以下一种方式启动建图。
 
 **方式 A：Qt 控制台（推荐）**
 
-1. 车载端先运行管理服务。
+1. 手工准备车载端基础栈，并确认 `/scan`、`/odom`、`/imu` 和 `/tf` 都可见。
 2. 在操作员端启动 `ros2 run car_operator_console car_operator_console`。
-3. 确认“车辆状态”中 `/scan`、`/odom`、`/imu` 为活跃。
-4. 点击“启动建图”。控制台会显示 `mapping` 与 `/map` 状态。
+3. 打开“建图”标签页，确认其中的前置条件均为活跃。
+4. 输入只含字母、数字、下划线或短横线的地图名称，点击“启动建图”。控制台会在
+   操作端运行 Cartographer，并显示本地建图日志与 `/map` 状态。
 
-**方式 B：管理服务命令行**
-
-```bash
-ros2 service call /car_manager/manage_stack \
-  car_control_interfaces/srv/ManageStack \
-  "{command: 1, component: 'mapping', profile: ''}"
-```
-
-**方式 C：手工 launch**
+**方式 B：手工 launch**
 
 ```bash
-ros2 launch car_platform_bringup vehicle_stack.launch.py \
-  mode:=mapping \
-  micro_ros_device:=/dev/ttyACM0 micro_ros_baud:=921600 \
-  lidar_device:=/dev/ttyACM1 lidar_baud:=460800
+ros2 launch fishbot_cartographer cartographer.launch.py use_sim_time:=false
 ```
 
 在另一终端验证 Cartographer 已发布栅格地图：
@@ -211,52 +202,27 @@ ros2 run tf2_ros tf2_echo map odom
 推动小车缓慢、平稳地覆盖环境。建议先沿墙走一圈，再穿过主要通道并回到起点以形成
 闭环。避免快速旋转、颠簸、玻璃强反射区域和人员频繁穿行；这些都会降低扫描匹配质量。
 
-本工程当前没有手动 `/cmd_vel` 遥控功能。建图期间请通过底盘已有的安全控制方式缓慢
-引导车辆；不要临时向 `/cmd_vel` 发布未知控制指令。
+### 4.3 使用建图遥控辅助移动
 
-### 4.3 保存地图
+“建图”标签页在 Cartographer 正在运行、且 `/scan`、`/odom`、`/imu`、`/tf` 均活跃时，
+会启用“建图遥控”。它向 `/cmd_vel` 发布速度，仅用于缓慢辅助建图：
 
-看到 `/map` 稳定、闭环合理后，在**另一个终端**保存。保存操作不应停止 Cartographer：
+1. 先确认急停可用、车辆周围留有安全距离；首次使用请架空车轮验证方向。
+2. 线速度建议从 `0.15 m/s` 开始，转向速度建议从 `0.60 rad/s` 开始。
+3. 必须**按住**“前进 / 后退 / 左转 / 右转”按钮才会持续行驶；松开按钮立即发送零速度。
+4. 需要立即制动时点击“停止”。停止建图、停止全部或关闭控制台也都会发送零速度。
 
-```bash
-mkdir -p ~/ros2_maps
-ros2 run nav2_map_server map_saver_cli -f ~/ros2_maps/lab_01
-```
+该遥控不提供避障或自主安全决策，不能替代实体急停和现场监护。不要同时运行其他会向
+`/cmd_vel` 发布命令的遥控器或导航程序。
 
-命令会生成：
+### 4.4 保存地图
 
-```text
-~/ros2_maps/lab_01.yaml    # 元数据、分辨率、原点、阈值
-~/ros2_maps/lab_01.pgm     # 栅格图像
-```
+看到 `/map` 稳定、闭环合理后，在“建图”标签页点击“保存地图”。它会将
+`<名称>.yaml` 和 `<名称>.pgm` 写入 `fishbot_navigation2/maps/`，并自动刷新控制台
+导航地图列表。停止前若尚未保存，控制台会要求保存或确认放弃；停止建图只结束操作端的
+Cartographer，不会停止车端基础硬件栈。
 
-检查 YAML 中的图像文件名和分辨率：
-
-```bash
-cat ~/ros2_maps/lab_01.yaml
-```
-
-车载管理服务和 Qt 控制台仅允许选择 `fishbot_navigation2/maps/` 内置的 YAML 地图。
-因此，在确认新图可用后，将一对文件复制到该目录，再以其 YAML 文件名启动导航：
-
-```bash
-cp ~/ros2_maps/lab_01.yaml ~/ros2_maps/lab_01.pgm \
-  /home/flipped/code/ros2_car/ros2_qt6_ws/src/fishbot/fishbot_navigation2/maps/
-```
-
-本工作区按 `--symlink-install` 构建时，新文件会立即在安装空间可见；若使用普通安装，
-重新执行 `colcon build` 后再启动导航。将地图加入版本控制前，请确认它不包含不应共享的
-场地信息。
-
-完成后停止建图：
-
-```bash
-ros2 service call /car_manager/manage_stack \
-  car_control_interfaces/srv/ManageStack \
-  "{command: 2, component: 'mapping', profile: ''}"
-```
-
-也可以在控制台点击“停止全部”。
+将地图加入版本控制前，请确认它不包含不应共享的场地信息。
 
 ## 5. 定位与导航
 

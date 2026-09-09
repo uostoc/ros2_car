@@ -10,20 +10,24 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QTabWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -72,10 +76,10 @@ MainWindow::MainWindow(
                   background: #ffffff; color: #223047; padding: 4px 11px; font-weight: 600; }
     QPushButton:hover { background: #edf4ff; border-color: #6b9de2; }
     QPushButton:disabled { background: #eef1f5; color: #9aa5b5; border-color: #d9dee7; }
-    QPushButton#primaryAction { background: #2367c9; color: white; border-color: #2367c9; }
-    QPushButton#primaryAction:hover { background: #1b56a7; }
-    QPushButton#dangerAction { background: #c93636; color: white; border-color: #c93636; }
-    QPushButton#dangerAction:hover { background: #a82424; }
+    QPushButton#primaryAction, QPushButton#mappingStartButton { background: #2367c9; color: white; border-color: #2367c9; }
+    QPushButton#primaryAction:hover, QPushButton#mappingStartButton:hover { background: #1b56a7; }
+    QPushButton#dangerAction, QPushButton#teleopStopButton { background: #c93636; color: white; border-color: #c93636; }
+    QPushButton#dangerAction:hover, QPushButton#teleopStopButton:hover { background: #a82424; }
     QComboBox, QDoubleSpinBox { border: 1px solid #b9c8dc; border-radius: 6px;
                                  padding: 2px 7px; background: white; }
     QComboBox { min-height: 34px; }
@@ -170,19 +174,16 @@ MainWindow::MainWindow(
   map_label_ = new QLabel(stack_group_);
   start_base_button_ = make_button(QString(), stack_group_);
   start_navigation_button_ = make_button(QString(), stack_group_);
-  start_mapping_button_ = make_button(QString(), stack_group_);
   stop_all_button_ = make_button(QString(), stack_group_);
   map_layout->addWidget(map_label_);
   map_layout->addWidget(map_input_, 1);
   map_layout->addWidget(refresh_assets_button_);
   action_layout->addWidget(start_base_button_, 0, 0);
   action_layout->addWidget(start_navigation_button_, 0, 1);
-  action_layout->addWidget(start_mapping_button_, 0, 2);
-  action_layout->addWidget(stop_all_button_, 0, 3);
+  action_layout->addWidget(stop_all_button_, 0, 2);
   action_layout->setColumnStretch(0, 1);
   action_layout->setColumnStretch(1, 1);
   action_layout->setColumnStretch(2, 1);
-  action_layout->setColumnStretch(3, 1);
   stack_layout->addLayout(map_layout);
   stack_layout->addLayout(action_layout);
   layout->addWidget(stack_group_);
@@ -197,19 +198,15 @@ MainWindow::MainWindow(
       bridge_.start_stack("navigation", map_input_->currentText());
     }
   });
-  connect(start_mapping_button_, &QPushButton::clicked, &bridge_, [this] {
-    if (confirm_mode_switch(ui_text("Mapping"))) {
-      bridge_.start_stack("mapping");
-    }
-  });
   connect(stop_all_button_, &QPushButton::clicked, &bridge_, [this] {
     if (QMessageBox::question(this, ui_text("Stop all components?"),
         ui_text("This stops the base stack and any active navigation or mapping task."),
         QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Yes) {
+      stop_local_mapping(true);
       bridge_.stop_stack("all");
     }
   });
-  connect(refresh_assets_button_, &QPushButton::clicked, this, &MainWindow::refresh_assets);
+  connect(refresh_assets_button_, &QPushButton::clicked, this, [this] { refresh_assets(); });
 
   navigation_group_ = new QGroupBox(central);
   auto *navigation_layout = new QFormLayout(navigation_group_);
@@ -287,6 +284,116 @@ MainWindow::MainWindow(
   main_tabs_ = new QTabWidget(this);
   main_tabs_->setObjectName("mainTabs");
   main_tabs_->addTab(content_scroll_area, QString());
+
+  mapping_page_ = new QWidget(main_tabs_);
+  mapping_page_->setObjectName("mappingPage");
+  auto *mapping_layout = new QVBoxLayout(mapping_page_);
+  mapping_layout->setContentsMargins(18, 14, 18, 18);
+  mapping_layout->setSpacing(12);
+  mapping_hint_ = new QLabel(mapping_page_);
+  mapping_hint_->setObjectName("mappingHint");
+  mapping_hint_->setWordWrap(true);
+  mapping_layout->addWidget(mapping_hint_);
+
+  auto *mapping_health_group = new QGroupBox(mapping_page_);
+  mapping_health_group->setObjectName("mappingHealthGroup");
+  auto *mapping_health_layout = new QGridLayout(mapping_health_group);
+  const QStringList mapping_topics = {"/scan", "/odom", "/imu", "/tf", "/map"};
+  for (int index = 0; index < mapping_topics.size(); ++index) {
+    const QString &topic = mapping_topics.at(index);
+    auto *topic_label = new QLabel(topic, mapping_health_group);
+    auto *state_label = new QLabel(mapping_health_group);
+    state_label->setMinimumHeight(28);
+    mapping_health_layout->addWidget(topic_label, index, 0);
+    mapping_health_layout->addWidget(state_label, index, 1);
+    mapping_health_layout->setColumnStretch(1, 1);
+    mapping_health_labels_[topic] = state_label;
+  }
+  mapping_layout->addWidget(mapping_health_group);
+
+  auto *mapping_controls_group = new QGroupBox(mapping_page_);
+  mapping_controls_group->setObjectName("mappingControlsGroup");
+  auto *mapping_controls_layout = new QFormLayout(mapping_controls_group);
+  mapping_name_label_ = new QLabel(mapping_controls_group);
+  mapping_name_input_ = new QLineEdit(mapping_controls_group);
+  mapping_name_input_->setObjectName("mappingNameInput");
+  mapping_name_input_->setPlaceholderText("office_20260909");
+  mapping_controls_layout->addRow(mapping_name_label_, mapping_name_input_);
+  mapping_state_label_ = new QLabel(mapping_controls_group);
+  mapping_state_label_->setObjectName("mappingStateLabel");
+  mapping_state_label_->setWordWrap(true);
+  mapping_controls_layout->addRow(mapping_state_label_);
+  auto *mapping_actions = new QHBoxLayout();
+  mapping_start_button_ = make_button(QString(), mapping_controls_group);
+  mapping_start_button_->setObjectName("mappingStartButton");
+  mapping_save_button_ = make_button(QString(), mapping_controls_group);
+  mapping_save_button_->setObjectName("mappingSaveButton");
+  mapping_stop_button_ = make_button(QString(), mapping_controls_group);
+  mapping_stop_button_->setObjectName("mappingStopButton");
+  mapping_actions->addWidget(mapping_start_button_);
+  mapping_actions->addWidget(mapping_save_button_);
+  mapping_actions->addWidget(mapping_stop_button_);
+  mapping_controls_layout->addRow(mapping_actions);
+  mapping_layout->addWidget(mapping_controls_group);
+
+  auto *teleop_group = new QGroupBox(mapping_page_);
+  teleop_group->setObjectName("mappingTeleopGroup");
+  auto *teleop_layout = new QGridLayout(teleop_group);
+  teleop_linear_label_ = new QLabel(teleop_group);
+  teleop_angular_label_ = new QLabel(teleop_group);
+  teleop_linear_input_ = make_coordinate_input(teleop_group, 0.05, 0.50, 0.15);
+  teleop_angular_input_ = make_coordinate_input(teleop_group, 0.10, 2.00, 0.60);
+  teleop_linear_input_->setSingleStep(0.05);
+  teleop_angular_input_->setSingleStep(0.10);
+  teleop_layout->addWidget(teleop_linear_label_, 0, 0);
+  teleop_layout->addWidget(teleop_linear_input_, 0, 1);
+  teleop_layout->addWidget(teleop_angular_label_, 0, 2);
+  teleop_layout->addWidget(teleop_angular_input_, 0, 3);
+  auto *forward_button = make_button(QString(), teleop_group);
+  auto *back_button = make_button(QString(), teleop_group);
+  auto *left_button = make_button(QString(), teleop_group);
+  auto *right_button = make_button(QString(), teleop_group);
+  auto *teleop_stop_button = make_button(QString(), teleop_group);
+  forward_button->setObjectName("teleopForwardButton");
+  back_button->setObjectName("teleopBackButton");
+  left_button->setObjectName("teleopLeftButton");
+  right_button->setObjectName("teleopRightButton");
+  teleop_stop_button->setObjectName("teleopStopButton");
+  teleop_layout->addWidget(forward_button, 1, 1);
+  teleop_layout->addWidget(left_button, 2, 0);
+  teleop_layout->addWidget(teleop_stop_button, 2, 1);
+  teleop_layout->addWidget(right_button, 2, 2);
+  teleop_layout->addWidget(back_button, 3, 1);
+  teleop_buttons_ = {forward_button, back_button, left_button, right_button, teleop_stop_button};
+  teleop_timer_ = new QTimer(this);
+  teleop_timer_->setInterval(100);
+  connect(teleop_timer_, &QTimer::timeout, this, [this] {
+    bridge_.publish_teleop_velocity(teleop_linear_x_, teleop_angular_z_);
+  });
+  const auto connect_motion = [this](QPushButton *button, double linear_sign, double angular_sign) {
+    connect(button, &QPushButton::pressed, this, [this, linear_sign, angular_sign] {
+      start_teleop(linear_sign * teleop_linear_input_->value(),
+          angular_sign * teleop_angular_input_->value());
+    });
+    connect(button, &QPushButton::released, this, &MainWindow::stop_teleop);
+  };
+  connect_motion(forward_button, 1.0, 0.0);
+  connect_motion(back_button, -1.0, 0.0);
+  connect_motion(left_button, 0.0, 1.0);
+  connect_motion(right_button, 0.0, -1.0);
+  connect(teleop_stop_button, &QPushButton::clicked, this, &MainWindow::stop_teleop);
+  mapping_layout->addWidget(teleop_group);
+
+  mapping_log_ = new QPlainTextEdit(mapping_page_);
+  mapping_log_->setObjectName("mappingLog");
+  mapping_log_->setReadOnly(true);
+  mapping_log_->setMinimumHeight(220);
+  mapping_layout->addWidget(mapping_log_, 1);
+  main_tabs_->addTab(mapping_page_, QString());
+  connect(mapping_start_button_, &QPushButton::clicked, this, &MainWindow::start_local_mapping);
+  connect(mapping_save_button_, &QPushButton::clicked, this, &MainWindow::save_current_map);
+  connect(mapping_stop_button_, &QPushButton::clicked, this, &MainWindow::request_stop_local_mapping);
+
   rviz_page_ = new QWidget(main_tabs_);
   rviz_layout_ = new QVBoxLayout(rviz_page_);
   rviz_layout_->setContentsMargins(0, 0, 0, 0);
@@ -328,11 +435,13 @@ MainWindow::MainWindow(
 }
 
 MainWindow::~MainWindow() {
+  stop_local_mapping(true);
   shutdown_rviz();
   bridge_.stop();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
+  stop_local_mapping(true);
   shutdown_rviz();
   bridge_.stop();
   QMainWindow::closeEvent(event);
@@ -367,6 +476,45 @@ QString MainWindow::ui_text(const char *source) const {
       {"Refresh maps and routes", "刷新地图与路线"},
       {"Choose the saved map used for AMCL localization", "选择 AMCL 定位要使用的已保存地图"},
       {"Requested base stack start", "已请求启动基础栈"},
+      {"Starting local Cartographer mapping", "正在本机启动 Cartographer 建图"},
+      {"Local mapping started", "本机建图已启动"},
+      {"Stopping local mapping", "正在停止本机建图"},
+      {"Local mapping is already running", "本机建图已在运行"},
+      {"Local mapping did not start: %1", "本机建图未能启动：%1"},
+      {"Local mapping exited with code %1", "本机建图以退出码 %1 结束"},
+      {"Local mapping process crashed", "本机建图进程崩溃"},
+      {"Prepare the vehicle base stack manually. Mapping runs locally on this Jazzy operator.", "请先手工准备车端基础栈；建图仅在此 Jazzy 操作端本机运行。"},
+      {"Mapping prerequisites", "建图前置条件"},
+      {"Mapping controls", "建图控制"},
+      {"Mapping teleoperation", "建图遥控"},
+      {"Map name", "地图名称"},
+      {"Linear speed (m/s)", "线速度（米/秒）"},
+      {"Turn speed (rad/s)", "转向速度（弧度/秒）"},
+      {"Forward (hold)", "前进（按住）"},
+      {"Reverse (hold)", "后退（按住）"},
+      {"Left (hold)", "左转（按住）"},
+      {"Right (hold)", "右转（按住）"},
+      {"Stop", "停止"},
+      {"Teleoperation is available only while mapping and vehicle base topics are ready", "仅在建图运行且车辆基础话题就绪时可遥控"},
+      {"Teleoperation stopped", "遥控已停止"},
+      {"Save Map", "保存地图"},
+      {"Stop Mapping", "停止建图"},
+      {"Stop navigation before starting mapping", "请先停止导航，再启动建图"},
+      {"Vehicle base topics are not ready; start the vehicle base stack manually", "车辆基础话题未就绪；请手工启动车端基础栈"},
+      {"Mapping stopped", "建图已停止"},
+      {"Save map before stopping?", "停止前保存地图？"},
+      {"This mapping result has not been saved. Save it before stopping?", "当前建图结果尚未保存。是否先保存再停止？"},
+      {"A running mapping session and an active /map topic are required", "需要正在运行的建图任务以及活跃的 /map 话题"},
+      {"Map name must contain only letters, numbers, underscores, or hyphens", "地图名称只能包含字母、数字、下划线或短横线"},
+      {"Navigation map directory is not writable", "导航地图目录不可写"},
+      {"Replace existing map?", "覆盖已有地图？"},
+      {"A map with this name already exists. Replace it?", "已存在同名地图，是否覆盖？"},
+      {"Map save failed", "地图保存失败"},
+      {"Map save did not start: %1", "地图保存未能启动：%1"},
+      {"Map saved: %1", "地图已保存：%1"},
+      {"Saving map: %1", "正在保存地图：%1"},
+      {"Map save is already in progress", "地图正在保存中"},
+      {"Status: %1", "状态：%1"},
       {"Switch to %1?", "切换到%1？"},
       {"Starting %1 will stop the currently active high-level mode.", "启动%1会停止当前运行的高层模式。"},
       {"Stop all components?", "停止全部组件？"},
@@ -433,6 +581,7 @@ void MainWindow::retranslate_ui() {
   navigation_group_->setTitle(ui_text("Navigation (map frame, yaw in degrees)"));
   patrol_group_->setTitle(ui_text("Navigation-only patrol"));
   main_tabs_->setTabText(main_tabs_->indexOf(main_tabs_->widget(0)), ui_text("Console"));
+  main_tabs_->setTabText(main_tabs_->indexOf(mapping_page_), ui_text("Mapping"));
   main_tabs_->setTabText(main_tabs_->indexOf(rviz_page_), ui_text("Map view"));
   if (rviz_placeholder_ != nullptr) {
     rviz_placeholder_->setText(ui_text(
@@ -447,13 +596,47 @@ void MainWindow::retranslate_ui() {
   route_label_->setText(ui_text("Route"));
   start_base_button_->setText(ui_text("Start Base"));
   start_navigation_button_->setText(ui_text("Start Navigation"));
-  start_mapping_button_->setText(ui_text("Start Mapping"));
   stop_all_button_->setText(ui_text("Stop All"));
   set_initial_pose_button_->setText(ui_text("Set Initial Pose"));
   send_goal_button_->setText(ui_text("Send Goal"));
   cancel_goal_button_->setText(ui_text("Cancel Goal"));
   start_patrol_button_->setText(ui_text("Start Patrol"));
   cancel_patrol_button_->setText(ui_text("Cancel Patrol"));
+  mapping_hint_->setText(ui_text(
+      "Prepare the vehicle base stack manually. Mapping runs locally on this Jazzy operator."));
+  if (auto *group = mapping_page_->findChild<QGroupBox *>("mappingHealthGroup")) {
+    group->setTitle(ui_text("Mapping prerequisites"));
+  }
+  if (auto *group = mapping_page_->findChild<QGroupBox *>("mappingControlsGroup")) {
+    group->setTitle(ui_text("Mapping controls"));
+  }
+  if (auto *group = mapping_page_->findChild<QGroupBox *>("mappingTeleopGroup")) {
+    group->setTitle(ui_text("Mapping teleoperation"));
+  }
+  mapping_name_label_->setText(ui_text("Map name"));
+  teleop_linear_label_->setText(ui_text("Linear speed (m/s)"));
+  teleop_angular_label_->setText(ui_text("Turn speed (rad/s)"));
+  mapping_start_button_->setText(ui_text("Start Mapping"));
+  mapping_save_button_->setText(ui_text("Save Map"));
+  mapping_stop_button_->setText(ui_text("Stop Mapping"));
+  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopForwardButton")) {
+    button->setText(ui_text("Forward (hold)"));
+  }
+  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopBackButton")) {
+    button->setText(ui_text("Reverse (hold)"));
+  }
+  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopLeftButton")) {
+    button->setText(ui_text("Left (hold)"));
+  }
+  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopRightButton")) {
+    button->setText(ui_text("Right (hold)"));
+  }
+  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopStopButton")) {
+    button->setText(ui_text("Stop"));
+  }
+  if (component_display_.find("mapping") == component_display_.end()) {
+    mapping_state_label_->setText(ui_text("Status: %1").arg(state_text(console_state_.mapping_state)));
+  }
 
   safety_hint_->setText(ui_text(
       "Start Base first, then choose one high-level mode. Mapping and navigation are mutually exclusive."));
@@ -463,6 +646,9 @@ void MainWindow::retranslate_ui() {
     update_component_label(entry.first);
   }
   for (const auto &entry : health_labels_) {
+    update_health_label(entry.first);
+  }
+  for (const auto &entry : mapping_health_labels_) {
     update_health_label(entry.first);
   }
   update_patrol_progress_label();
@@ -534,18 +720,18 @@ void MainWindow::update_component_label(const QString &component) {
 }
 
 void MainWindow::update_health_label(const QString &topic) {
-  const auto label = health_labels_.find(topic);
-  if (label == health_labels_.end()) {
-    return;
-  }
   const auto activity = health_activity_.find(topic);
-  if (activity == health_activity_.end()) {
-    label->second->setText(ui_text("Unknown"));
-    return;
+  const QString text = activity == health_activity_.end() ? ui_text("Unknown") :
+      (activity->second ? ui_text("Active") : ui_text("Inactive"));
+  const QString style = activity != health_activity_.end() && activity->second ?
+      "color: #197a4a; font-weight: 600;" : "color: #8a4b08; font-weight: 600;";
+  for (const auto *labels : {&health_labels_, &mapping_health_labels_}) {
+    const auto label = labels->find(topic);
+    if (label != labels->end()) {
+      label->second->setText(text);
+      label->second->setStyleSheet(style);
+    }
   }
-  label->second->setText(activity->second ? ui_text("Active") : ui_text("Inactive"));
-  label->second->setStyleSheet(activity->second ? "color: #197a4a; font-weight: 600;" :
-      "color: #8a4b08; font-weight: 600;");
 }
 
 void MainWindow::update_patrol_progress_label() {
@@ -569,14 +755,42 @@ void MainWindow::update_mode_summary() {
 
 void MainWindow::update_controls() {
   const bool navigation_ready = console_state_.can_navigate();
-  start_navigation_button_->setEnabled(console_state_.can_start_navigation() && map_input_->count() > 0);
-  start_mapping_button_->setEnabled(console_state_.can_start_mapping());
+  start_navigation_button_->setEnabled(
+      console_state_.can_start_navigation() && map_input_->count() > 0 && !console_state_.is_mapping());
+  mapping_start_button_->setEnabled(console_state_.can_start_mapping() && !navigation_ready);
+  const bool mapping_running = console_state_.is_mapping();
+  const bool map_available = health_activity_.find("/map") != health_activity_.end() && health_activity_.at("/map");
+  mapping_save_button_->setEnabled(mapping_running && map_available &&
+      (map_save_process_ == nullptr || map_save_process_->state() == QProcess::NotRunning));
+  mapping_stop_button_->setEnabled(mapping_process_ != nullptr &&
+      mapping_process_->state() != QProcess::NotRunning);
+  const bool vehicle_topics_ready = [&] {
+    for (const QString &topic : {QString("/scan"), QString("/odom"), QString("/imu"), QString("/tf")}) {
+      const auto activity = health_activity_.find(topic);
+      if (activity == health_activity_.end() || !activity->second) {
+        return false;
+      }
+    }
+    return true;
+  }();
+  const bool teleop_ready = mapping_running && vehicle_topics_ready;
+  for (std::size_t index = 0; index + 1 < teleop_buttons_.size(); ++index) {
+    teleop_buttons_[index]->setEnabled(teleop_ready);
+  }
+  if (!teleop_buttons_.empty()) {
+    teleop_buttons_.back()->setEnabled(mapping_running);
+  }
+  teleop_linear_input_->setEnabled(teleop_ready);
+  teleop_angular_input_->setEnabled(teleop_ready);
+  if (!teleop_ready && teleop_timer_ != nullptr && teleop_timer_->isActive()) {
+    stop_teleop();
+  }
   set_initial_pose_button_->setEnabled(navigation_ready);
   send_goal_button_->setEnabled(navigation_ready);
   start_patrol_button_->setEnabled(navigation_ready && route_input_->count() > 0);
 }
 
-void MainWindow::refresh_assets() {
+void MainWindow::refresh_assets(const QString &preferred_map) {
   const QString current_map = map_input_->currentText();
   const QString current_route = route_input_->currentText();
   map_input_->clear();
@@ -612,10 +826,237 @@ void MainWindow::refresh_assets() {
     append_log(ui_text("No patrol routes found"));
   }
 
-  const int map_index = map_input_->findText(current_map);
+  const QString requested_map = preferred_map.isEmpty() ? current_map : preferred_map;
+  const int map_index = map_input_->findText(requested_map);
   map_input_->setCurrentIndex(map_index >= 0 ? map_index : 0);
   const int route_index = route_input_->findText(current_route);
   route_input_->setCurrentIndex(route_index >= 0 ? route_index : 0);
+  update_controls();
+}
+
+void MainWindow::append_mapping_log(const QString &message) {
+  mapping_log_->appendPlainText(QString("[%1] %2").arg(
+      QDateTime::currentDateTime().toString("HH:mm:ss"), message));
+}
+
+QString MainWindow::mapping_output_base() const {
+  return QString::fromStdString(ament_index_cpp::get_package_share_directory("fishbot_navigation2")) +
+      "/maps/" + mapping_name_input_->text().trimmed();
+}
+
+void MainWindow::start_local_mapping() {
+  if (console_state_.can_navigate()) {
+    append_mapping_log(ui_text("Stop navigation before starting mapping"));
+    return;
+  }
+  for (const QString &topic : {QString("/scan"), QString("/odom"), QString("/imu"), QString("/tf")}) {
+    if (health_activity_.find(topic) == health_activity_.end() || !health_activity_.at(topic)) {
+      append_mapping_log(ui_text("Vehicle base topics are not ready; start the vehicle base stack manually"));
+      return;
+    }
+  }
+  if (mapping_process_ == nullptr) {
+    mapping_process_ = new QProcess(this);
+    mapping_process_->setProcessChannelMode(QProcess::MergedChannels);
+    connect(mapping_process_, &QProcess::started, this, [this] {
+      update_component("mapping", ConsoleState::kRunning,
+          static_cast<int>(mapping_process_->processId()), ui_text("Local mapping started"));
+      append_mapping_log(ui_text("Local mapping started"));
+    });
+    connect(mapping_process_, &QProcess::readyReadStandardOutput, this, [this] {
+      const QString output = QString::fromLocal8Bit(mapping_process_->readAllStandardOutput()).trimmed();
+      if (!output.isEmpty()) {
+        append_mapping_log(output);
+      }
+    });
+    connect(mapping_process_, &QProcess::errorOccurred, this,
+        [this](QProcess::ProcessError error) {
+          if (error == QProcess::FailedToStart) {
+            update_component("mapping", ConsoleState::kError, 0,
+                ui_text("Local mapping did not start: %1").arg(mapping_process_->errorString()));
+            append_mapping_log(ui_text("Local mapping did not start: %1").arg(mapping_process_->errorString()));
+          }
+        });
+    connect(mapping_process_, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+        [this](int exit_code, QProcess::ExitStatus exit_status) {
+          stop_teleop();
+          const bool requested_stop = mapping_stop_requested_;
+          mapping_stop_requested_ = false;
+          if (requested_stop) {
+            update_component("mapping", ConsoleState::kStopped, 0, ui_text("Stopped"));
+            append_mapping_log(ui_text("Mapping stopped"));
+            return;
+          }
+          const QString detail = exit_status == QProcess::NormalExit
+              ? ui_text("Local mapping exited with code %1").arg(exit_code)
+              : ui_text("Local mapping process crashed");
+          update_component("mapping", ConsoleState::kError, 0, detail);
+          append_mapping_log(detail);
+        });
+  }
+
+  if (mapping_process_->state() != QProcess::NotRunning) {
+    append_log(ui_text("Local mapping is already running"));
+    return;
+  }
+
+  mapping_stop_requested_ = false;
+  mapping_has_unsaved_changes_ = true;
+  update_component("mapping", ConsoleState::kStarting, 0, ui_text("Starting local Cartographer mapping"));
+  append_mapping_log(ui_text("Starting local Cartographer mapping"));
+  mapping_process_->start("ros2", {"launch", "fishbot_cartographer", "cartographer.launch.py",
+      "use_sim_time:=false"});
+}
+
+void MainWindow::request_stop_local_mapping() {
+  if (mapping_process_ == nullptr || mapping_process_->state() == QProcess::NotRunning) {
+    return;
+  }
+  if (!mapping_has_unsaved_changes_) {
+    stop_local_mapping(false);
+    return;
+  }
+  const auto response = QMessageBox::question(this, ui_text("Save map before stopping?"),
+      ui_text("This mapping result has not been saved. Save it before stopping?"),
+      QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+  if (response == QMessageBox::Save) {
+    stop_after_map_save_ = true;
+    save_current_map();
+  } else if (response == QMessageBox::Discard) {
+    stop_local_mapping(true);
+  }
+}
+
+void MainWindow::stop_local_mapping(bool discard_unsaved) {
+  stop_teleop();
+  if (mapping_process_ == nullptr || mapping_process_->state() == QProcess::NotRunning) {
+    return;
+  }
+  if (!discard_unsaved && mapping_has_unsaved_changes_) {
+    return;
+  }
+  mapping_stop_requested_ = true;
+  update_component("mapping", ConsoleState::kStopping,
+      static_cast<int>(mapping_process_->processId()), ui_text("Stopping local mapping"));
+  mapping_process_->terminate();
+  QTimer::singleShot(5000, mapping_process_, [this] {
+    if (mapping_process_ != nullptr && mapping_process_->state() != QProcess::NotRunning) {
+      mapping_process_->kill();
+    }
+  });
+}
+
+void MainWindow::start_teleop(double linear_x, double angular_z) {
+  const bool vehicle_topics_ready = [&] {
+    for (const QString &topic : {QString("/scan"), QString("/odom"), QString("/imu"), QString("/tf")}) {
+      const auto activity = health_activity_.find(topic);
+      if (activity == health_activity_.end() || !activity->second) {
+        return false;
+      }
+    }
+    return true;
+  }();
+  if (!console_state_.is_mapping() || !vehicle_topics_ready) {
+    append_mapping_log(ui_text(
+        "Teleoperation is available only while mapping and vehicle base topics are ready"));
+    stop_teleop();
+    return;
+  }
+
+  teleop_linear_x_ = linear_x;
+  teleop_angular_z_ = angular_z;
+  bridge_.publish_teleop_velocity(teleop_linear_x_, teleop_angular_z_);
+  teleop_timer_->start();
+}
+
+void MainWindow::stop_teleop() {
+  const bool was_active = teleop_timer_ != nullptr && teleop_timer_->isActive();
+  if (teleop_timer_ != nullptr) {
+    teleop_timer_->stop();
+  }
+  teleop_linear_x_ = 0.0;
+  teleop_angular_z_ = 0.0;
+  bridge_.stop_teleop();
+  if (was_active && mapping_log_ != nullptr) {
+    append_mapping_log(ui_text("Teleoperation stopped"));
+  }
+}
+
+void MainWindow::save_current_map() {
+  if (mapping_process_ == nullptr || mapping_process_->state() != QProcess::Running ||
+      health_activity_.find("/map") == health_activity_.end() || !health_activity_.at("/map")) {
+    append_mapping_log(ui_text("A running mapping session and an active /map topic are required"));
+    stop_after_map_save_ = false;
+    return;
+  }
+  const QString map_name = mapping_name_input_->text().trimmed();
+  static const QRegularExpression valid_name("^[A-Za-z0-9_-]+$");
+  if (!valid_name.match(map_name).hasMatch()) {
+    append_mapping_log(ui_text("Map name must contain only letters, numbers, underscores, or hyphens"));
+    stop_after_map_save_ = false;
+    return;
+  }
+  const QFileInfo output_directory(QFileInfo(mapping_output_base()).dir().absolutePath());
+  if (!output_directory.isDir() || !output_directory.isWritable()) {
+    append_mapping_log(ui_text("Navigation map directory is not writable"));
+    stop_after_map_save_ = false;
+    return;
+  }
+  const QString output_base = mapping_output_base();
+  if (QFileInfo::exists(output_base + ".yaml") || QFileInfo::exists(output_base + ".pgm")) {
+    if (QMessageBox::question(this, ui_text("Replace existing map?"),
+        ui_text("A map with this name already exists. Replace it?"),
+        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) {
+      stop_after_map_save_ = false;
+      return;
+    }
+  }
+  if (map_save_process_ == nullptr) {
+    map_save_process_ = new QProcess(this);
+    map_save_process_->setProcessChannelMode(QProcess::MergedChannels);
+    connect(map_save_process_, &QProcess::readyReadStandardOutput, this, [this] {
+      const QString output = QString::fromLocal8Bit(map_save_process_->readAllStandardOutput()).trimmed();
+      if (!output.isEmpty()) {
+        append_mapping_log(output);
+      }
+    });
+    connect(map_save_process_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+      if (error == QProcess::FailedToStart) {
+        append_mapping_log(ui_text("Map save did not start: %1").arg(map_save_process_->errorString()));
+        stop_after_map_save_ = false;
+        update_controls();
+      }
+    });
+    connect(map_save_process_, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+        [this](int exit_code, QProcess::ExitStatus exit_status) {
+          const QString output_base = map_save_process_->property("output_base").toString();
+          const QString map_file = map_save_process_->property("map_file").toString();
+          const bool saved = exit_status == QProcess::NormalExit && exit_code == 0 &&
+              QFileInfo::exists(output_base + ".yaml") && QFileInfo::exists(output_base + ".pgm");
+          if (!saved) {
+            append_mapping_log(ui_text("Map save failed"));
+            stop_after_map_save_ = false;
+            update_controls();
+            return;
+          }
+          mapping_has_unsaved_changes_ = false;
+          append_mapping_log(ui_text("Map saved: %1").arg(map_file));
+          refresh_assets(map_file);
+          update_controls();
+          if (stop_after_map_save_) {
+            stop_after_map_save_ = false;
+            stop_local_mapping(false);
+          }
+        });
+  }
+  if (map_save_process_->state() != QProcess::NotRunning) {
+    append_mapping_log(ui_text("Map save is already in progress"));
+    return;
+  }
+  append_mapping_log(ui_text("Saving map: %1").arg(map_name));
+  map_save_process_->setProperty("output_base", output_base);
+  map_save_process_->setProperty("map_file", map_name + ".yaml");
+  map_save_process_->start("ros2", {"run", "nav2_map_server", "map_saver_cli", "-f", output_base});
   update_controls();
 }
 
@@ -659,6 +1100,7 @@ void MainWindow::update_component(const QString &component, int state, int pid, 
     console_state_.navigation_state = state;
   } else if (component == "mapping") {
     console_state_.mapping_state = state;
+    mapping_state_label_->setText(ui_text("%1: %2").arg(state_text(state), detail));
   }
   update_mode_summary();
   update_controls();

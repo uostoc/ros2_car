@@ -1,25 +1,16 @@
 
 import os
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.substitutions import LaunchConfiguration
-from launch.actions import IncludeLaunchDescription
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch.actions import DeclareLaunchArgument
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
 def generate_launch_description():
     # 定位到功能包的地址
     pkg_share = FindPackageShare(package='fishbot_cartographer').find('fishbot_cartographer')
     
-    fishbot_navigation2_dir = get_package_share_directory('fishbot_navigation2')
-    nav2_bringup_dir = get_package_share_directory('nav2_bringup')
-    
-    map_yaml_path = LaunchConfiguration('map',default=os.path.join(fishbot_navigation2_dir,'maps','test_map.yaml'))
-    nav2_param_path = LaunchConfiguration('params_file',default=os.path.join(fishbot_navigation2_dir,'param','fishbot.yaml'))
-
     #=====================运行节点需要的配置=======================================================================
     # 是否使用仿真时间，我们用gazebo，这里设置成true
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
@@ -75,19 +66,12 @@ def generate_launch_description():
 
 
 
-    #===============================================定义启动文件========================================================
+    # Cartographer owns mapping only.  Nav2 is deliberately not included:
+    # localization/navigation must start separately after a map is saved.
     ld = LaunchDescription()
     #ld.add_action(tf2_node)
     ld.add_action(cartographer_node)
     ld.add_action(cartographer_occupancy_grid_node)
 #    ld.add_action(rviz_node)
 
-    IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([nav2_bringup_dir,'/launch','/bringup_launch.py']),
-        launch_arguments={
-            'map': map_yaml_path,
-            'use_sim_time': use_sim_time,
-            'params_file': nav2_param_path}.items(),
-    )
-    
     return ld

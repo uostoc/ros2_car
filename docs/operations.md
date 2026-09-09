@@ -67,8 +67,15 @@ for precise input.
 
 - **Base** starts micro-ROS Agent, C1 lidar, and Fishbot TF bringup.
 - **Navigation** starts Base and Nav2 with the configured map.
-- **Mapping** starts Base and Cartographer. It automatically stops Navigation.
+- **Mapping** is an independent Jazzy-operator workflow. Prepare Base manually on the
+  vehicle, then use the console's **Mapping** tab to start local Cartographer and save
+  named YAML/PGM maps into `fishbot_navigation2/maps`.
 
-The first release intentionally has no manual `/cmd_vel` control and no camera
-integration. Patrol sends Nav2 goals for each configured route point and then
-returns to its declared start pose.
+The Mapping tab provides constrained `/cmd_vel` teleoperation only while local
+mapping is running and `/scan`, `/odom`, `/imu`, and `/tf` are active. Movement
+buttons are press-and-hold: releasing a button, clicking **Stop**, stopping
+mapping or all components, and closing the console all publish a zero velocity.
+It has no obstacle avoidance, so retain a physical e-stop and an attentive
+operator; never run another `/cmd_vel` command source at the same time. Patrol
+sends Nav2 goals for each configured route point and then returns to its declared
+start pose.

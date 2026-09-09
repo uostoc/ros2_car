@@ -1,9 +1,11 @@
 #include "car_operator_console/ros_bridge.hpp"
 
 #include <cmath>
+#include <chrono>
 #include <utility>
 
 #include <QMetaObject>
+#include <QTimer>
 
 namespace car_operator_console {
 
@@ -22,6 +24,17 @@ void RosBridge::start() {
   patrol_client_ = rclcpp_action::create_client<RunPatrol>(node_, "/car_patrol/run");
   initial_pose_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
       "/initialpose", 10);
+  teleop_publisher_ = node_->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+  {
+    std::lock_guard<std::mutex> lock(health_mutex_);
+    for (const char *topic : {"/scan", "/odom", "/imu", "/tf", "/map"}) {
+      topic_active_[topic] = false;
+    }
+  }
+  health_timer_ = new QTimer(this);
+  health_timer_->setInterval(500);
+  connect(health_timer_, &QTimer::timeout, this, &RosBridge::monitor_topic_health);
+  health_timer_->start();
 
   subscriptions_.push_back(node_->create_subscription<car_control_interfaces::msg::ComponentStatus>(
       "/car_manager/component_status", 20,
@@ -30,13 +43,15 @@ void RosBridge::start() {
                               QString::fromStdString(message->detail));
       }));
   subscriptions_.push_back(node_->create_subscription<sensor_msgs::msg::LaserScan>(
-      "/scan", 10, [this](const sensor_msgs::msg::LaserScan::SharedPtr) { emit topic_health("/scan", true); }));
+      "/scan", 10, [this](const sensor_msgs::msg::LaserScan::SharedPtr) { record_topic_activity("/scan"); }));
   subscriptions_.push_back(node_->create_subscription<nav_msgs::msg::Odometry>(
-      "/odom", 10, [this](const nav_msgs::msg::Odometry::SharedPtr) { emit topic_health("/odom", true); }));
+      "/odom", 10, [this](const nav_msgs::msg::Odometry::SharedPtr) { record_topic_activity("/odom"); }));
   subscriptions_.push_back(node_->create_subscription<sensor_msgs::msg::Imu>(
-      "/imu", 10, [this](const sensor_msgs::msg::Imu::SharedPtr) { emit topic_health("/imu", true); }));
+      "/imu", 10, [this](const sensor_msgs::msg::Imu::SharedPtr) { record_topic_activity("/imu"); }));
+  subscriptions_.push_back(node_->create_subscription<tf2_msgs::msg::TFMessage>(
+      "/tf", 10, [this](const tf2_msgs::msg::TFMessage::SharedPtr) { record_topic_activity("/tf"); }));
   subscriptions_.push_back(node_->create_subscription<nav_msgs::msg::OccupancyGrid>(
-      "/map", 10, [this](const nav_msgs::msg::OccupancyGrid::SharedPtr) { emit topic_health("/map", true); }));
+      "/map", 10, [this](const nav_msgs::msg::OccupancyGrid::SharedPtr) { record_topic_activity("/map"); }));
 
   executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
   executor_->add_node(node_);
@@ -47,6 +62,10 @@ void RosBridge::start() {
 void RosBridge::stop() {
   if (!running_.exchange(false)) {
     return;
+  }
+  stop_teleop();
+  if (health_timer_) {
+    health_timer_->stop();
   }
   if (executor_) {
     executor_->cancel();
@@ -61,7 +80,13 @@ void RosBridge::stop() {
   navigation_client_.reset();
   manager_client_.reset();
   initial_pose_publisher_.reset();
+  teleop_publisher_.reset();
   subscriptions_.clear();
+  {
+    std::lock_guard<std::mutex> lock(health_mutex_);
+    topic_activity_.clear();
+    topic_active_.clear();
+  }
   executor_.reset();
   node_.reset();
 }
@@ -89,6 +114,53 @@ void RosBridge::start_stack(const QString &component, const QString &profile) {
 
 void RosBridge::stop_stack(const QString &component) {
   request_stack(ManageStack::Request::STOP, component);
+}
+
+void RosBridge::publish_teleop_velocity(double linear_x, double angular_z) {
+  if (!teleop_publisher_) {
+    return;
+  }
+  geometry_msgs::msg::Twist command;
+  command.linear.x = linear_x;
+  command.angular.z = angular_z;
+  teleop_publisher_->publish(command);
+}
+
+void RosBridge::stop_teleop() {
+  publish_teleop_velocity(0.0, 0.0);
+}
+
+void RosBridge::record_topic_activity(const char *topic) {
+  bool became_active = false;
+  {
+    std::lock_guard<std::mutex> lock(health_mutex_);
+    const std::string topic_name(topic);
+    topic_activity_[topic_name] = std::chrono::steady_clock::now();
+    became_active = !topic_active_[topic_name];
+    topic_active_[topic_name] = true;
+  }
+  if (became_active) {
+    emit topic_health(QString::fromUtf8(topic), true);
+  }
+}
+
+void RosBridge::monitor_topic_health() {
+  std::vector<QString> inactive_topics;
+  const auto now = std::chrono::steady_clock::now();
+  {
+    std::lock_guard<std::mutex> lock(health_mutex_);
+    for (auto &[topic, active] : topic_active_) {
+      const auto last_activity = topic_activity_.find(topic);
+      if (active && (last_activity == topic_activity_.end() ||
+          now - last_activity->second > std::chrono::seconds(2))) {
+        active = false;
+        inactive_topics.push_back(QString::fromStdString(topic));
+      }
+    }
+  }
+  for (const QString &topic : inactive_topics) {
+    emit topic_health(topic, false);
+  }
 }
 
 geometry_msgs::msg::PoseWithCovarianceStamped RosBridge::make_initial_pose(

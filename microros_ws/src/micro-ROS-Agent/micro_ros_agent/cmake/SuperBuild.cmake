@@ -22,11 +22,26 @@ enable_language(CXX)
 unset(xrceagent_DIR CACHE)
 find_package(xrceagent 2 EXACT QUIET)
 if(NOT xrceagent_FOUND)
+    set(MICRO_XRCE_DDS_AGENT_SOURCE_DIR "" CACHE PATH
+        "Existing Micro-XRCE-DDS-Agent source directory; skips the Git download when set")
+    if(MICRO_XRCE_DDS_AGENT_SOURCE_DIR)
+        if(NOT EXISTS "${MICRO_XRCE_DDS_AGENT_SOURCE_DIR}/CMakeLists.txt")
+            message(FATAL_ERROR
+                "MICRO_XRCE_DDS_AGENT_SOURCE_DIR is not a Micro-XRCE-DDS-Agent source directory: "
+                "${MICRO_XRCE_DDS_AGENT_SOURCE_DIR}")
+        endif()
+        set(_xrceagent_source_arguments
+            SOURCE_DIR "${MICRO_XRCE_DDS_AGENT_SOURCE_DIR}"
+            DOWNLOAD_COMMAND "")
+    else()
+        set(_xrceagent_source_arguments
+            GIT_REPOSITORY https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+            # Keep the Agent compatible with Humble's system Fast-CDR 1 / Fast DDS 2.6.
+            # The vehicle firmware and Agent must be upgraded as a matched pair.
+            GIT_TAG v2.4.2)
+    endif()
     ExternalProject_Add(xrceagent
-            GIT_REPOSITORY
-                https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
-            GIT_TAG
-                v2.4.2
+            ${_xrceagent_source_arguments}
             PREFIX
                 ${PROJECT_BINARY_DIR}/agent
             INSTALL_DIR
@@ -61,8 +76,12 @@ ExternalProject_Add(micro_ros_agent
         ${CMAKE_CURRENT_BINARY_DIR}
     CMAKE_CACHE_ARGS
         -DMICROROSAGENT_SUPERBUILD:BOOL=OFF
+        # The nested project owns the executable and ament resource index.  It
+        # must install into this package prefix so `ros2 run micro_ros_agent …`
+        # works for the stack manager and launch file.
+        -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_INSTALL_PREFIX}
     INSTALL_COMMAND
-        ""
+        ${CMAKE_COMMAND} --build <BINARY_DIR> --target install
     DEPENDS
         xrceagent
     )

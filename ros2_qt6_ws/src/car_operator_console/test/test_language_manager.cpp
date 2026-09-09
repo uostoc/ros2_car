@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTabWidget>
+#include <QPushButton>
 #include <QtTest/QtTest>
 
 #include <rclcpp/rclcpp.hpp>
@@ -120,7 +121,7 @@ class LanguageManagerTest final : public QObject {
     QCOMPARE(scroll_area->verticalScrollBar()->maximum(), 0);
   }
 
-  void map_view_is_available_without_initializing_rviz() {
+  void mapping_and_map_view_are_available_without_initializing_rviz() {
     QSettings settings;
     settings.setValue("ui/language", "en");
     car_operator_console::MainWindow window(
@@ -128,9 +129,28 @@ class LanguageManagerTest final : public QObject {
     auto *tabs = window.findChild<QTabWidget *>("mainTabs");
 
     QVERIFY(tabs != nullptr);
-    QCOMPARE(tabs->count(), 2);
+    QCOMPARE(tabs->count(), 3);
     QCOMPARE(tabs->tabText(0), QString("Console"));
-    QCOMPARE(tabs->tabText(1), QString("Map view"));
+    QCOMPARE(tabs->tabText(1), QString("Mapping"));
+    QCOMPARE(tabs->tabText(2), QString("Map view"));
+    QVERIFY(window.findChild<QWidget *>("mappingPage") != nullptr);
+    QVERIFY(window.findChild<QPushButton *>("mappingStartButton") != nullptr);
+    QVERIFY(window.findChild<QPushButton *>("mappingSaveButton") != nullptr);
+    QVERIFY(window.findChild<QPushButton *>("mappingStopButton") != nullptr);
+    auto *forward = window.findChild<QPushButton *>("teleopForwardButton");
+    auto *reverse = window.findChild<QPushButton *>("teleopBackButton");
+    auto *left = window.findChild<QPushButton *>("teleopLeftButton");
+    auto *right = window.findChild<QPushButton *>("teleopRightButton");
+    auto *stop = window.findChild<QPushButton *>("teleopStopButton");
+    QVERIFY(forward != nullptr);
+    QVERIFY(reverse != nullptr);
+    QVERIFY(left != nullptr);
+    QVERIFY(right != nullptr);
+    QVERIFY(stop != nullptr);
+    QVERIFY(!forward->isEnabled());
+    QVERIFY(!reverse->isEnabled());
+    QVERIFY(!left->isEnabled());
+    QVERIFY(!right->isEnabled());
     QVERIFY(window.findChild<QLabel *>("rvizPlaceholder") != nullptr);
   }
 };

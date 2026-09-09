@@ -2,6 +2,7 @@
 
 #include <map>
 #include <memory>
+#include <vector>
 
 #include <QMainWindow>
 
@@ -16,11 +17,15 @@ class QCloseEvent;
 class QDoubleSpinBox;
 class QGroupBox;
 class QLabel;
+class QLineEdit;
 class QMenu;
 class QPlainTextEdit;
 class QPushButton;
+class QProcess;
 class QTabWidget;
+class QTimer;
 class QVBoxLayout;
+class QWidget;
 
 namespace rviz_common {
 class VisualizationFrame;
@@ -57,7 +62,15 @@ class MainWindow final : public QMainWindow {
   void update_patrol_progress_label();
   void update_mode_summary();
   void update_controls();
-  void refresh_assets();
+  void refresh_assets(const QString &preferred_map = {});
+  void append_mapping_log(const QString &message);
+  void start_local_mapping();
+  void request_stop_local_mapping();
+  void stop_local_mapping(bool discard_unsaved);
+  void save_current_map();
+  QString mapping_output_base() const;
+  void start_teleop(double linear_x, double angular_z);
+  void stop_teleop();
   void initialize_rviz();
   void shutdown_rviz();
   bool confirm_mode_switch(const QString &target_mode);
@@ -71,6 +84,7 @@ class MainWindow final : public QMainWindow {
   QString mode_;
   std::map<QString, QLabel *> component_labels_;
   std::map<QString, QLabel *> health_labels_;
+  std::map<QString, QLabel *> mapping_health_labels_;
   std::map<QString, ComponentDisplay> component_display_;
   std::map<QString, bool> health_activity_;
   QGroupBox *health_group_{};
@@ -91,7 +105,6 @@ class MainWindow final : public QMainWindow {
   QComboBox *route_input_{};
   QPushButton *start_base_button_{};
   QPushButton *start_navigation_button_{};
-  QPushButton *start_mapping_button_{};
   QPushButton *stop_all_button_{};
   QPushButton *set_initial_pose_button_{};
   QPushButton *send_goal_button_{};
@@ -101,7 +114,24 @@ class MainWindow final : public QMainWindow {
   QPushButton *refresh_assets_button_{};
   QLabel *patrol_progress_{};
   QPlainTextEdit *log_{};
+  QProcess *mapping_process_{};
+  QProcess *map_save_process_{};
   QTabWidget *main_tabs_{};
+  QWidget *mapping_page_{};
+  QLabel *mapping_hint_{};
+  QLabel *mapping_state_label_{};
+  QLabel *mapping_name_label_{};
+  QLabel *teleop_linear_label_{};
+  QLabel *teleop_angular_label_{};
+  QLineEdit *mapping_name_input_{};
+  QDoubleSpinBox *teleop_linear_input_{};
+  QDoubleSpinBox *teleop_angular_input_{};
+  QPushButton *mapping_start_button_{};
+  QPushButton *mapping_save_button_{};
+  QPushButton *mapping_stop_button_{};
+  std::vector<QPushButton *> teleop_buttons_;
+  QPlainTextEdit *mapping_log_{};
+  QTimer *teleop_timer_{};
   QWidget *rviz_page_{};
   QVBoxLayout *rviz_layout_{};
   QLabel *rviz_placeholder_{};
@@ -116,6 +146,11 @@ class MainWindow final : public QMainWindow {
   unsigned int patrol_total_{};
   QString patrol_point_;
   bool rviz_initialization_attempted_{false};
+  bool mapping_stop_requested_{false};
+  bool mapping_has_unsaved_changes_{false};
+  bool stop_after_map_save_{false};
+  double teleop_linear_x_{0.0};
+  double teleop_angular_z_{0.0};
 };
 
 }  // namespace car_operator_console

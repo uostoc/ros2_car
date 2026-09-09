@@ -16,6 +16,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rviz_common REQUIRED)
 find_package(rviz_default_plugins REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2_msgs REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools Test)
 
 set(CMAKE_AUTOMOC ON)
@@ -44,6 +45,7 @@ ament_target_dependencies(car_operator_console
   rviz_common
   rviz_default_plugins
   sensor_msgs
+  tf2_msgs
 )
 target_link_libraries(car_operator_console
   Qt5::Widgets
@@ -97,6 +99,7 @@ if(BUILD_TESTING)
     rclcpp
     rclcpp_action
     sensor_msgs
+    tf2_msgs
   )
   target_link_libraries(test_language_manager
     Qt5::Test

@@ -58,7 +58,10 @@ sudo usermod -aG dialout ros
 
 - **基础模式（Base）**：启动 micro-ROS Agent、C1 雷达和 Fishbot TF bringup。
 - **导航模式（Navigation）**：启动基础模式和使用所选地图的 Nav2。
-- **建图模式（Mapping）**：启动基础模式和 Cartographer，并自动停止导航模式。
+- **建图（Mapping）**：独立运行在 Jazzy 操作端。手工准备车端基础栈后，在控制台
+  “建图”标签页启动本机 Cartographer，并将命名地图保存到 `fishbot_navigation2/maps`。
 
-首版刻意不提供手动 `/cmd_vel` 控制，也不集成相机。巡检会为路线中的每个点发送
-Nav2 目标，最后返回配置的起始点。
+建图页提供受限的 `/cmd_vel` 辅助遥控：仅在本机建图运行且 `/scan`、`/odom`、`/imu`、
+`/tf` 均活跃时启用。方向按钮必须按住才持续移动，松开、点击“停止”、停止建图、停止
+全部或退出控制台都会发送零速度。它没有避障能力，必须保留实体急停和现场监护，且不能
+与其他 `/cmd_vel` 控制源同时使用。巡检会为路线中的每个点发送 Nav2 目标，最后返回配置的起始点。

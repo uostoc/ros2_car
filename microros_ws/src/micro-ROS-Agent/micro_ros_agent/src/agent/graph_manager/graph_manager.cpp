@@ -17,6 +17,7 @@
 
 #include <agent/graph_manager/graph_manager.hpp>
 
+#include <exception>
 #include <memory>
 #include <string>
 #include <utility>
@@ -758,7 +759,22 @@ GraphManager::DatareaderListener::DatareaderListener(
 void GraphManager::DatareaderListener::on_data_available(
         eprosima::fastdds::dds::DataReader* /*sub*/)
 {
-    graphManager_from_->update_node_entities_info();
+    // `ros_discovery_info` is an internal rmw_dds_common topic.  Its wire
+    // schema is not a supported compatibility boundary between ROS releases.
+    // A Jazzy participant can therefore send a sample a Humble Agent cannot
+    // deserialize.  This callback runs on a Fast DDS worker thread, so an
+    // uncaught exception terminates the whole Agent and disconnects the
+    // micro-ROS client.  Ignore that graph-only sample; normal micro-ROS
+    // publishers, subscribers, services and actions remain unaffected.
+    try
+    {
+        graphManager_from_->update_node_entities_info();
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "micro-ROS Agent: ignored incompatible ROS graph discovery sample: "
+                  << error.what() << std::endl;
+    }
 }
 
 }  // namespace graph_manager
