@@ -86,7 +86,6 @@ class MainWindow final : public QMainWindow {
   QString mapping_output_base() const;
   bool vehicle_topics_ready() const;
   bool teleop_prerequisites_met() const;
-  bool teleop_tab_active() const;
   void set_teleop_enabled(bool enabled);
   void set_teleop_button_active(TeleopKeyBindings::Action action, bool active);
   void update_teleop_motion();

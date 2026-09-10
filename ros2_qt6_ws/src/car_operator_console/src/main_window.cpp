@@ -452,12 +452,7 @@ MainWindow::MainWindow(
   rviz_layout_->addWidget(rviz_placeholder_);
   main_tabs_->addTab(rviz_page_, QString());
   setCentralWidget(main_tabs_);
-  connect(main_tabs_, &QTabWidget::currentChanged, this, [this](int) {
-    if (!teleop_tab_active()) {
-      set_teleop_enabled(false);
-    }
-    update_controls();
-  });
+  connect(main_tabs_, &QTabWidget::currentChanged, this, [this](int) { update_controls(); });
 
   connect(&language_manager_, &LanguageManager::language_changed, this,
           [this](const QString &) { retranslate_ui(); });
@@ -535,7 +530,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
     return true;
   }
   auto *focus = QApplication::focusWidget();
-  if (!teleop_enabled_ || !teleop_tab_active() || qobject_cast<QLineEdit *>(focus) != nullptr ||
+  if (!teleop_enabled_ || qobject_cast<QLineEdit *>(focus) != nullptr ||
       qobject_cast<QAbstractSpinBox *>(focus) != nullptr || qobject_cast<QPlainTextEdit *>(focus) != nullptr ||
       !teleop_key_bindings_.action_for_key(key_event->key())) {
     return QMainWindow::eventFilter(watched, event);
@@ -571,7 +566,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
     return;
   }
   auto *focus = QApplication::focusWidget();
-  if (!teleop_enabled_ || !teleop_tab_active() || qobject_cast<QLineEdit *>(focus) != nullptr ||
+  if (!teleop_enabled_ || qobject_cast<QLineEdit *>(focus) != nullptr ||
       qobject_cast<QAbstractSpinBox *>(focus) != nullptr || qobject_cast<QPlainTextEdit *>(focus) != nullptr) {
     QMainWindow::keyPressEvent(event);
     return;
@@ -596,7 +591,7 @@ void MainWindow::keyReleaseEvent(QKeyEvent *event) {
     return;
   }
   auto *focus = QApplication::focusWidget();
-  if (!teleop_enabled_ || !teleop_tab_active() || qobject_cast<QLineEdit *>(focus) != nullptr ||
+  if (!teleop_enabled_ || qobject_cast<QLineEdit *>(focus) != nullptr ||
       qobject_cast<QAbstractSpinBox *>(focus) != nullptr || qobject_cast<QPlainTextEdit *>(focus) != nullptr) {
     QMainWindow::keyReleaseEvent(event);
     return;
@@ -944,7 +939,7 @@ void MainWindow::update_controls() {
       (map_save_process_ == nullptr || map_save_process_->state() == QProcess::NotRunning));
   mapping_stop_button_->setEnabled(mapping_process_ != nullptr &&
       mapping_process_->state() != QProcess::NotRunning);
-  const bool teleop_available = teleop_prerequisites_met() && teleop_tab_active();
+  const bool teleop_available = teleop_prerequisites_met();
   if (!teleop_available && teleop_enabled_) {
     set_teleop_enabled(false);
   }
@@ -1141,12 +1136,8 @@ bool MainWindow::teleop_prerequisites_met() const {
       vehicle_topics_ready();
 }
 
-bool MainWindow::teleop_tab_active() const {
-  return main_tabs_ != nullptr && main_tabs_->currentWidget() == teleop_page_;
-}
-
 void MainWindow::set_teleop_enabled(bool enabled) {
-  if (enabled && (!teleop_prerequisites_met() || !teleop_tab_active())) {
+  if (enabled && !teleop_prerequisites_met()) {
     enabled = false;
   }
   if (teleop_enable_check_->isChecked() != enabled) {
@@ -1161,7 +1152,7 @@ void MainWindow::set_teleop_enabled(bool enabled) {
 }
 
 void MainWindow::set_teleop_button_active(TeleopKeyBindings::Action action, bool active) {
-  if (!teleop_enabled_ || !teleop_tab_active()) {
+  if (!teleop_enabled_) {
     return;
   }
   pressed_teleop_buttons_.at(action) = active;
@@ -1169,7 +1160,7 @@ void MainWindow::set_teleop_button_active(TeleopKeyBindings::Action action, bool
 }
 
 void MainWindow::update_teleop_motion() {
-  if (!teleop_enabled_ || !teleop_prerequisites_met() || !teleop_tab_active()) {
+  if (!teleop_enabled_ || !teleop_prerequisites_met()) {
     set_teleop_enabled(false);
     return;
   }

@@ -77,9 +77,9 @@ Base or local Mapping is running, `/scan`, `/odom`, `/imu`, and `/tf` are
 active, and Navigation is stopped. Hold its movement buttons or `W`/Up,
 `S`/Down, `A`/Left, and `D`/Right to drive; Space or `0` stops immediately.
 The tab can save one additional key for every direction and stop action on the
-operator computer. Switching away from the tab, losing focus, disabling
-teleoperation, stopping a prerequisite, or closing the console publishes zero
-velocity. It has no obstacle avoidance, so retain a physical e-stop and an
+operator computer. You may switch to **Map view** and continue to drive with
+the mapped keys; losing focus, disabling teleoperation, stopping a prerequisite,
+or closing the console publishes zero velocity. It has no obstacle avoidance, so retain a physical e-stop and an
 attentive operator; never run another `/cmd_vel` command source at the same
 time. Patrol sends Nav2 goals for each configured route point and then returns
 to its declared start pose.
