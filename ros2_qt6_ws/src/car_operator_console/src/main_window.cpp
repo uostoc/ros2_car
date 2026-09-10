@@ -4,7 +4,9 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QAbstractSpinBox>
 #include <QApplication>
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDateTime>
@@ -13,9 +15,13 @@
 #include <QFileInfo>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QFocusEvent>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QHideEvent>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -26,6 +32,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -195,6 +202,7 @@ MainWindow::MainWindow(
   });
   connect(start_navigation_button_, &QPushButton::clicked, &bridge_, [this] {
     if (confirm_mode_switch(ui_text("Navigation"))) {
+      set_teleop_enabled(false);
       bridge_.start_stack("navigation", map_input_->currentText());
     }
   });
@@ -336,54 +344,6 @@ MainWindow::MainWindow(
   mapping_controls_layout->addRow(mapping_actions);
   mapping_layout->addWidget(mapping_controls_group);
 
-  auto *teleop_group = new QGroupBox(mapping_page_);
-  teleop_group->setObjectName("mappingTeleopGroup");
-  auto *teleop_layout = new QGridLayout(teleop_group);
-  teleop_linear_label_ = new QLabel(teleop_group);
-  teleop_angular_label_ = new QLabel(teleop_group);
-  teleop_linear_input_ = make_coordinate_input(teleop_group, 0.05, 0.50, 0.15);
-  teleop_angular_input_ = make_coordinate_input(teleop_group, 0.10, 2.00, 0.60);
-  teleop_linear_input_->setSingleStep(0.05);
-  teleop_angular_input_->setSingleStep(0.10);
-  teleop_layout->addWidget(teleop_linear_label_, 0, 0);
-  teleop_layout->addWidget(teleop_linear_input_, 0, 1);
-  teleop_layout->addWidget(teleop_angular_label_, 0, 2);
-  teleop_layout->addWidget(teleop_angular_input_, 0, 3);
-  auto *forward_button = make_button(QString(), teleop_group);
-  auto *back_button = make_button(QString(), teleop_group);
-  auto *left_button = make_button(QString(), teleop_group);
-  auto *right_button = make_button(QString(), teleop_group);
-  auto *teleop_stop_button = make_button(QString(), teleop_group);
-  forward_button->setObjectName("teleopForwardButton");
-  back_button->setObjectName("teleopBackButton");
-  left_button->setObjectName("teleopLeftButton");
-  right_button->setObjectName("teleopRightButton");
-  teleop_stop_button->setObjectName("teleopStopButton");
-  teleop_layout->addWidget(forward_button, 1, 1);
-  teleop_layout->addWidget(left_button, 2, 0);
-  teleop_layout->addWidget(teleop_stop_button, 2, 1);
-  teleop_layout->addWidget(right_button, 2, 2);
-  teleop_layout->addWidget(back_button, 3, 1);
-  teleop_buttons_ = {forward_button, back_button, left_button, right_button, teleop_stop_button};
-  teleop_timer_ = new QTimer(this);
-  teleop_timer_->setInterval(100);
-  connect(teleop_timer_, &QTimer::timeout, this, [this] {
-    bridge_.publish_teleop_velocity(teleop_linear_x_, teleop_angular_z_);
-  });
-  const auto connect_motion = [this](QPushButton *button, double linear_sign, double angular_sign) {
-    connect(button, &QPushButton::pressed, this, [this, linear_sign, angular_sign] {
-      start_teleop(linear_sign * teleop_linear_input_->value(),
-          angular_sign * teleop_angular_input_->value());
-    });
-    connect(button, &QPushButton::released, this, &MainWindow::stop_teleop);
-  };
-  connect_motion(forward_button, 1.0, 0.0);
-  connect_motion(back_button, -1.0, 0.0);
-  connect_motion(left_button, 0.0, 1.0);
-  connect_motion(right_button, 0.0, -1.0);
-  connect(teleop_stop_button, &QPushButton::clicked, this, &MainWindow::stop_teleop);
-  mapping_layout->addWidget(teleop_group);
-
   mapping_log_ = new QPlainTextEdit(mapping_page_);
   mapping_log_->setObjectName("mappingLog");
   mapping_log_->setReadOnly(true);
@@ -393,6 +353,94 @@ MainWindow::MainWindow(
   connect(mapping_start_button_, &QPushButton::clicked, this, &MainWindow::start_local_mapping);
   connect(mapping_save_button_, &QPushButton::clicked, this, &MainWindow::save_current_map);
   connect(mapping_stop_button_, &QPushButton::clicked, this, &MainWindow::request_stop_local_mapping);
+
+  teleop_page_ = new QWidget(main_tabs_);
+  teleop_page_->setObjectName("teleopPage");
+  auto *teleop_layout = new QVBoxLayout(teleop_page_);
+  teleop_layout->setContentsMargins(18, 14, 18, 18);
+  teleop_layout->setSpacing(12);
+  teleop_hint_ = new QLabel(teleop_page_);
+  teleop_hint_->setObjectName("teleopHint");
+  teleop_hint_->setWordWrap(true);
+  teleop_layout->addWidget(teleop_hint_);
+
+  auto *teleop_enable_group = new QGroupBox(teleop_page_);
+  teleop_enable_group->setObjectName("teleopEnableGroup");
+  auto *teleop_enable_layout = new QVBoxLayout(teleop_enable_group);
+  teleop_enable_check_ = new QCheckBox(teleop_enable_group);
+  teleop_enable_check_->setObjectName("teleopEnableCheck");
+  teleop_status_label_ = new QLabel(teleop_enable_group);
+  teleop_status_label_->setObjectName("teleopStatusLabel");
+  teleop_status_label_->setWordWrap(true);
+  teleop_enable_layout->addWidget(teleop_enable_check_);
+  teleop_enable_layout->addWidget(teleop_status_label_);
+  teleop_layout->addWidget(teleop_enable_group);
+
+  auto *teleop_controls_group = new QGroupBox(teleop_page_);
+  teleop_controls_group->setObjectName("teleopControlsGroup");
+  auto *teleop_controls_layout = new QGridLayout(teleop_controls_group);
+  teleop_linear_label_ = new QLabel(teleop_controls_group);
+  teleop_angular_label_ = new QLabel(teleop_controls_group);
+  teleop_linear_input_ = make_coordinate_input(teleop_controls_group, 0.05, 0.50, 0.15);
+  teleop_angular_input_ = make_coordinate_input(teleop_controls_group, 0.10, 2.00, 0.60);
+  teleop_linear_input_->setSingleStep(0.05);
+  teleop_angular_input_->setSingleStep(0.10);
+  teleop_controls_layout->addWidget(teleop_linear_label_, 0, 0);
+  teleop_controls_layout->addWidget(teleop_linear_input_, 0, 1);
+  teleop_controls_layout->addWidget(teleop_angular_label_, 0, 2);
+  teleop_controls_layout->addWidget(teleop_angular_input_, 0, 3);
+  const std::array<QString, TeleopKeyBindings::kActionCount> teleop_button_names = {
+      "teleopForwardButton", "teleopBackButton", "teleopLeftButton", "teleopRightButton", "teleopStopButton"};
+  for (int index = 0; index < TeleopKeyBindings::kActionCount; ++index) {
+    auto *button = make_button(QString(), teleop_controls_group);
+    button->setObjectName(teleop_button_names.at(index));
+    teleop_action_buttons_.at(index) = button;
+  }
+  teleop_controls_layout->addWidget(teleop_action_buttons_.at(TeleopKeyBindings::kForward), 1, 1);
+  teleop_controls_layout->addWidget(teleop_action_buttons_.at(TeleopKeyBindings::kLeft), 2, 0);
+  teleop_controls_layout->addWidget(teleop_action_buttons_.at(TeleopKeyBindings::kStop), 2, 1);
+  teleop_controls_layout->addWidget(teleop_action_buttons_.at(TeleopKeyBindings::kRight), 2, 2);
+  teleop_controls_layout->addWidget(teleop_action_buttons_.at(TeleopKeyBindings::kReverse), 3, 1);
+  teleop_action_buttons_.at(TeleopKeyBindings::kStop)->setObjectName("teleopStopButton");
+  teleop_layout->addWidget(teleop_controls_group);
+
+  auto *key_bindings_group = new QGroupBox(teleop_page_);
+  key_bindings_group->setObjectName("teleopKeyBindingsGroup");
+  auto *key_bindings_layout = new QGridLayout(key_bindings_group);
+  for (int index = 0; index < TeleopKeyBindings::kActionCount; ++index) {
+    auto *button = make_button(QString(), key_bindings_group);
+    button->setObjectName(QString("teleopKeyCapture%1").arg(index));
+    key_capture_buttons_.at(index) = button;
+    connect(button, &QPushButton::clicked, this, [this, index] {
+      begin_key_capture(static_cast<TeleopKeyBindings::Action>(index));
+    });
+    key_bindings_layout->addWidget(button, index / 2, index % 2);
+  }
+  teleop_reset_keys_button_ = make_button(QString(), key_bindings_group);
+  teleop_reset_keys_button_->setObjectName("teleopResetKeysButton");
+  key_bindings_layout->addWidget(teleop_reset_keys_button_, 3, 0, 1, 2);
+  teleop_layout->addWidget(key_bindings_group);
+
+  teleop_timer_ = new QTimer(this);
+  teleop_timer_->setInterval(100);
+  connect(teleop_timer_, &QTimer::timeout, this, [this] { update_teleop_motion(); });
+  connect(teleop_enable_check_, &QCheckBox::toggled, this, &MainWindow::set_teleop_enabled);
+  for (int index = 0; index < TeleopKeyBindings::kStop; ++index) {
+    const auto action = static_cast<TeleopKeyBindings::Action>(index);
+    connect(teleop_action_buttons_.at(index), &QPushButton::pressed, this,
+        [this, action] { set_teleop_button_active(action, true); });
+    connect(teleop_action_buttons_.at(index), &QPushButton::released, this,
+        [this, action] { set_teleop_button_active(action, false); });
+  }
+  connect(teleop_action_buttons_.at(TeleopKeyBindings::kStop), &QPushButton::clicked,
+      this, &MainWindow::stop_teleop);
+  connect(teleop_reset_keys_button_, &QPushButton::clicked, this, [this] {
+    key_capture_action_.reset();
+    teleop_key_bindings_.reset();
+    refresh_key_binding_buttons();
+  });
+  main_tabs_->addTab(teleop_page_, QString());
+  QApplication::instance()->installEventFilter(this);
 
   rviz_page_ = new QWidget(main_tabs_);
   rviz_layout_ = new QVBoxLayout(rviz_page_);
@@ -404,6 +452,12 @@ MainWindow::MainWindow(
   rviz_layout_->addWidget(rviz_placeholder_);
   main_tabs_->addTab(rviz_page_, QString());
   setCentralWidget(main_tabs_);
+  connect(main_tabs_, &QTabWidget::currentChanged, this, [this](int) {
+    if (!teleop_tab_active()) {
+      set_teleop_enabled(false);
+    }
+    update_controls();
+  });
 
   connect(&language_manager_, &LanguageManager::language_changed, this,
           [this](const QString &) { retranslate_ui(); });
@@ -435,16 +489,125 @@ MainWindow::MainWindow(
 }
 
 MainWindow::~MainWindow() {
+  stop_teleop();
   stop_local_mapping(true);
   shutdown_rviz();
   bridge_.stop();
 }
 
+void MainWindow::changeEvent(QEvent *event) {
+  if (event->type() == QEvent::ActivationChange && !isActiveWindow()) {
+    set_teleop_enabled(false);
+  }
+  QMainWindow::changeEvent(event);
+}
+
 void MainWindow::closeEvent(QCloseEvent *event) {
+  stop_teleop();
   stop_local_mapping(true);
   shutdown_rviz();
   bridge_.stop();
   QMainWindow::closeEvent(event);
+}
+
+void MainWindow::focusOutEvent(QFocusEvent *event) {
+  set_teleop_enabled(false);
+  QMainWindow::focusOutEvent(event);
+}
+
+void MainWindow::hideEvent(QHideEvent *event) {
+  set_teleop_enabled(false);
+  QMainWindow::hideEvent(event);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
+  Q_UNUSED(watched)
+  if (!isActiveWindow() || (event->type() != QEvent::KeyPress && event->type() != QEvent::KeyRelease)) {
+    return QMainWindow::eventFilter(watched, event);
+  }
+  auto *key_event = static_cast<QKeyEvent *>(event);
+  if (key_capture_action_) {
+    if (event->type() == QEvent::KeyPress) {
+      keyPressEvent(key_event);
+    } else {
+      keyReleaseEvent(key_event);
+    }
+    return true;
+  }
+  auto *focus = QApplication::focusWidget();
+  if (!teleop_enabled_ || !teleop_tab_active() || qobject_cast<QLineEdit *>(focus) != nullptr ||
+      qobject_cast<QAbstractSpinBox *>(focus) != nullptr || qobject_cast<QPlainTextEdit *>(focus) != nullptr ||
+      !teleop_key_bindings_.action_for_key(key_event->key())) {
+    return QMainWindow::eventFilter(watched, event);
+  }
+  if (event->type() == QEvent::KeyPress) {
+    keyPressEvent(key_event);
+  } else {
+    keyReleaseEvent(key_event);
+  }
+  return true;
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event) {
+  if (event->isAutoRepeat()) {
+    event->accept();
+    return;
+  }
+  if (key_capture_action_) {
+    if (event->key() == Qt::Key_Escape) {
+      key_capture_action_.reset();
+      refresh_key_binding_buttons();
+      event->accept();
+      return;
+    }
+    QString error;
+    if (!teleop_key_bindings_.set_custom_key(*key_capture_action_, event->key(), &error)) {
+      teleop_status_label_->setText(error == QStringLiteral("That key is already assigned") ?
+          ui_text("That key is already assigned") : ui_text("Choose a non-modifier key"));
+    }
+    key_capture_action_.reset();
+    refresh_key_binding_buttons();
+    event->accept();
+    return;
+  }
+  auto *focus = QApplication::focusWidget();
+  if (!teleop_enabled_ || !teleop_tab_active() || qobject_cast<QLineEdit *>(focus) != nullptr ||
+      qobject_cast<QAbstractSpinBox *>(focus) != nullptr || qobject_cast<QPlainTextEdit *>(focus) != nullptr) {
+    QMainWindow::keyPressEvent(event);
+    return;
+  }
+  const auto action = teleop_key_bindings_.action_for_key(event->key());
+  if (!action) {
+    QMainWindow::keyPressEvent(event);
+    return;
+  }
+  if (*action == TeleopKeyBindings::kStop) {
+    stop_teleop();
+  } else {
+    pressed_teleop_keys_.insert(event->key());
+    update_teleop_motion();
+  }
+  event->accept();
+}
+
+void MainWindow::keyReleaseEvent(QKeyEvent *event) {
+  if (event->isAutoRepeat() || key_capture_action_) {
+    event->accept();
+    return;
+  }
+  auto *focus = QApplication::focusWidget();
+  if (!teleop_enabled_ || !teleop_tab_active() || qobject_cast<QLineEdit *>(focus) != nullptr ||
+      qobject_cast<QAbstractSpinBox *>(focus) != nullptr || qobject_cast<QPlainTextEdit *>(focus) != nullptr) {
+    QMainWindow::keyReleaseEvent(event);
+    return;
+  }
+  if (!teleop_key_bindings_.action_for_key(event->key())) {
+    QMainWindow::keyReleaseEvent(event);
+    return;
+  }
+  pressed_teleop_keys_.remove(event->key());
+  update_teleop_motion();
+  event->accept();
 }
 
 void MainWindow::append_log(const QString &message) {
@@ -486,7 +649,21 @@ QString MainWindow::ui_text(const char *source) const {
       {"Prepare the vehicle base stack manually. Mapping runs locally on this Jazzy operator.", "请先手工准备车端基础栈；建图仅在此 Jazzy 操作端本机运行。"},
       {"Mapping prerequisites", "建图前置条件"},
       {"Mapping controls", "建图控制"},
-      {"Mapping teleoperation", "建图遥控"},
+      {"Teleoperation", "遥控"},
+      {"Teleoperation is disabled. Enable it only with clear surroundings and a working physical e-stop.", "遥控已禁用。请仅在周围环境清晰且实体急停可用时启用。"},
+      {"Teleoperation enable", "启用遥控"},
+      {"Teleoperation is ready. Hold a movement button or mapped key to drive.", "遥控已就绪。按住方向按钮或已映射按键即可行驶。"},
+      {"Teleoperation is unavailable: start Base or Mapping, wait for vehicle topics, and stop Navigation.", "遥控不可用：请启动基础栈或建图，等待车辆话题就绪，并停止导航。"},
+      {"Keyboard bindings", "键盘映射"},
+      {"Restore default keys", "恢复默认按键"},
+      {"Press a key…", "请按一个按键…"},
+      {"Forward", "前进"},
+      {"Reverse", "后退"},
+      {"Left", "左转"},
+      {"Right", "右转"},
+      {"%1 (hold)", "%1（按住）"},
+      {"Choose a non-modifier key", "请选择非修饰键"},
+      {"That key is already assigned", "该按键已被分配"},
       {"Map name", "地图名称"},
       {"Linear speed (m/s)", "线速度（米/秒）"},
       {"Turn speed (rad/s)", "转向速度（弧度/秒）"},
@@ -495,7 +672,6 @@ QString MainWindow::ui_text(const char *source) const {
       {"Left (hold)", "左转（按住）"},
       {"Right (hold)", "右转（按住）"},
       {"Stop", "停止"},
-      {"Teleoperation is available only while mapping and vehicle base topics are ready", "仅在建图运行且车辆基础话题就绪时可遥控"},
       {"Teleoperation stopped", "遥控已停止"},
       {"Save Map", "保存地图"},
       {"Stop Mapping", "停止建图"},
@@ -582,6 +758,7 @@ void MainWindow::retranslate_ui() {
   patrol_group_->setTitle(ui_text("Navigation-only patrol"));
   main_tabs_->setTabText(main_tabs_->indexOf(main_tabs_->widget(0)), ui_text("Console"));
   main_tabs_->setTabText(main_tabs_->indexOf(mapping_page_), ui_text("Mapping"));
+  main_tabs_->setTabText(main_tabs_->indexOf(teleop_page_), ui_text("Teleoperation"));
   main_tabs_->setTabText(main_tabs_->indexOf(rviz_page_), ui_text("Map view"));
   if (rviz_placeholder_ != nullptr) {
     rviz_placeholder_->setText(ui_text(
@@ -610,30 +787,32 @@ void MainWindow::retranslate_ui() {
   if (auto *group = mapping_page_->findChild<QGroupBox *>("mappingControlsGroup")) {
     group->setTitle(ui_text("Mapping controls"));
   }
-  if (auto *group = mapping_page_->findChild<QGroupBox *>("mappingTeleopGroup")) {
-    group->setTitle(ui_text("Mapping teleoperation"));
-  }
   mapping_name_label_->setText(ui_text("Map name"));
-  teleop_linear_label_->setText(ui_text("Linear speed (m/s)"));
-  teleop_angular_label_->setText(ui_text("Turn speed (rad/s)"));
   mapping_start_button_->setText(ui_text("Start Mapping"));
   mapping_save_button_->setText(ui_text("Save Map"));
   mapping_stop_button_->setText(ui_text("Stop Mapping"));
-  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopForwardButton")) {
-    button->setText(ui_text("Forward (hold)"));
+  teleop_hint_->setText(ui_text(
+      "Teleoperation is disabled. Enable it only with clear surroundings and a working physical e-stop."));
+  if (auto *group = teleop_page_->findChild<QGroupBox *>("teleopEnableGroup")) {
+    group->setTitle(ui_text("Teleoperation"));
   }
-  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopBackButton")) {
-    button->setText(ui_text("Reverse (hold)"));
+  if (auto *group = teleop_page_->findChild<QGroupBox *>("teleopControlsGroup")) {
+    group->setTitle(ui_text("Teleoperation"));
   }
-  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopLeftButton")) {
-    button->setText(ui_text("Left (hold)"));
+  if (auto *group = teleop_page_->findChild<QGroupBox *>("teleopKeyBindingsGroup")) {
+    group->setTitle(ui_text("Keyboard bindings"));
   }
-  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopRightButton")) {
-    button->setText(ui_text("Right (hold)"));
+  teleop_enable_check_->setText(ui_text("Teleoperation enable"));
+  teleop_linear_label_->setText(ui_text("Linear speed (m/s)"));
+  teleop_angular_label_->setText(ui_text("Turn speed (rad/s)"));
+  for (int index = 0; index < TeleopKeyBindings::kActionCount; ++index) {
+    const auto action = static_cast<TeleopKeyBindings::Action>(index);
+    teleop_action_buttons_.at(index)->setText(
+        action == TeleopKeyBindings::kStop ? ui_text("Stop") :
+        ui_text("%1 (hold)").arg(teleop_action_text(action)));
   }
-  if (auto *button = mapping_page_->findChild<QPushButton *>("teleopStopButton")) {
-    button->setText(ui_text("Stop"));
-  }
+  teleop_reset_keys_button_->setText(ui_text("Restore default keys"));
+  refresh_key_binding_buttons();
   if (component_display_.find("mapping") == component_display_.end()) {
     mapping_state_label_->setText(ui_text("Status: %1").arg(state_text(console_state_.mapping_state)));
   }
@@ -652,6 +831,7 @@ void MainWindow::retranslate_ui() {
     update_health_label(entry.first);
   }
   update_patrol_progress_label();
+  update_controls();
 }
 
 void MainWindow::initialize_rviz() {
@@ -764,27 +944,24 @@ void MainWindow::update_controls() {
       (map_save_process_ == nullptr || map_save_process_->state() == QProcess::NotRunning));
   mapping_stop_button_->setEnabled(mapping_process_ != nullptr &&
       mapping_process_->state() != QProcess::NotRunning);
-  const bool vehicle_topics_ready = [&] {
-    for (const QString &topic : {QString("/scan"), QString("/odom"), QString("/imu"), QString("/tf")}) {
-      const auto activity = health_activity_.find(topic);
-      if (activity == health_activity_.end() || !activity->second) {
-        return false;
-      }
-    }
-    return true;
-  }();
-  const bool teleop_ready = mapping_running && vehicle_topics_ready;
-  for (std::size_t index = 0; index + 1 < teleop_buttons_.size(); ++index) {
-    teleop_buttons_[index]->setEnabled(teleop_ready);
+  const bool teleop_available = teleop_prerequisites_met() && teleop_tab_active();
+  if (!teleop_available && teleop_enabled_) {
+    set_teleop_enabled(false);
   }
-  if (!teleop_buttons_.empty()) {
-    teleop_buttons_.back()->setEnabled(mapping_running);
+  const bool teleop_ready = teleop_available && teleop_enabled_;
+  teleop_enable_check_->setEnabled(teleop_available);
+  for (auto *button : teleop_action_buttons_) {
+    button->setEnabled(teleop_ready);
   }
   teleop_linear_input_->setEnabled(teleop_ready);
   teleop_angular_input_->setEnabled(teleop_ready);
-  if (!teleop_ready && teleop_timer_ != nullptr && teleop_timer_->isActive()) {
-    stop_teleop();
+  for (auto *button : key_capture_buttons_) {
+    button->setEnabled(!teleop_enabled_);
   }
+  teleop_reset_keys_button_->setEnabled(!teleop_enabled_);
+  teleop_status_label_->setText(teleop_ready ?
+      ui_text("Teleoperation is ready. Hold a movement button or mapped key to drive.") :
+      ui_text("Teleoperation is unavailable: start Base or Mapping, wait for vehicle topics, and stop Navigation."));
   set_initial_pose_button_->setEnabled(navigation_ready);
   send_goal_button_->setEnabled(navigation_ready);
   start_patrol_button_->setEnabled(navigation_ready && route_input_->count() > 0);
@@ -946,40 +1123,124 @@ void MainWindow::stop_local_mapping(bool discard_unsaved) {
   });
 }
 
-void MainWindow::start_teleop(double linear_x, double angular_z) {
-  const bool vehicle_topics_ready = [&] {
-    for (const QString &topic : {QString("/scan"), QString("/odom"), QString("/imu"), QString("/tf")}) {
-      const auto activity = health_activity_.find(topic);
-      if (activity == health_activity_.end() || !activity->second) {
-        return false;
-      }
+bool MainWindow::vehicle_topics_ready() const {
+  for (const QString &topic : {QString("/scan"), QString("/odom"), QString("/imu"), QString("/tf")}) {
+    const auto activity = health_activity_.find(topic);
+    if (activity == health_activity_.end() || !activity->second) {
+      return false;
     }
-    return true;
-  }();
-  if (!console_state_.is_mapping() || !vehicle_topics_ready) {
-    append_mapping_log(ui_text(
-        "Teleoperation is available only while mapping and vehicle base topics are ready"));
+  }
+  return true;
+}
+
+bool MainWindow::teleop_prerequisites_met() const {
+  const auto bringup = component_display_.find("bringup");
+  const bool base_running = bringup != component_display_.end() &&
+      bringup->second.state == ConsoleState::kRunning;
+  return !console_state_.can_navigate() && (base_running || console_state_.is_mapping()) &&
+      vehicle_topics_ready();
+}
+
+bool MainWindow::teleop_tab_active() const {
+  return main_tabs_ != nullptr && main_tabs_->currentWidget() == teleop_page_;
+}
+
+void MainWindow::set_teleop_enabled(bool enabled) {
+  if (enabled && (!teleop_prerequisites_met() || !teleop_tab_active())) {
+    enabled = false;
+  }
+  if (teleop_enable_check_->isChecked() != enabled) {
+    const QSignalBlocker blocker(teleop_enable_check_);
+    teleop_enable_check_->setChecked(enabled);
+  }
+  teleop_enabled_ = enabled;
+  if (!teleop_enabled_) {
     stop_teleop();
+  }
+  update_controls();
+}
+
+void MainWindow::set_teleop_button_active(TeleopKeyBindings::Action action, bool active) {
+  if (!teleop_enabled_ || !teleop_tab_active()) {
     return;
   }
+  pressed_teleop_buttons_.at(action) = active;
+  update_teleop_motion();
+}
 
-  teleop_linear_x_ = linear_x;
-  teleop_angular_z_ = angular_z;
+void MainWindow::update_teleop_motion() {
+  if (!teleop_enabled_ || !teleop_prerequisites_met() || !teleop_tab_active()) {
+    set_teleop_enabled(false);
+    return;
+  }
+  const auto pressed = [this](TeleopKeyBindings::Action action) {
+    return pressed_teleop_buttons_.at(action) || teleop_key_bindings_.is_pressed(action, pressed_teleop_keys_);
+  };
+  const int linear = (pressed(TeleopKeyBindings::kForward) ? 1 : 0) -
+      (pressed(TeleopKeyBindings::kReverse) ? 1 : 0);
+  const int angular = (pressed(TeleopKeyBindings::kLeft) ? 1 : 0) -
+      (pressed(TeleopKeyBindings::kRight) ? 1 : 0);
+  teleop_linear_x_ = linear * teleop_linear_input_->value();
+  teleop_angular_z_ = angular * teleop_angular_input_->value();
+  if (linear == 0 && angular == 0) {
+    teleop_timer_->stop();
+    bridge_.stop_teleop();
+    return;
+  }
   bridge_.publish_teleop_velocity(teleop_linear_x_, teleop_angular_z_);
   teleop_timer_->start();
 }
 
 void MainWindow::stop_teleop() {
-  const bool was_active = teleop_timer_ != nullptr && teleop_timer_->isActive();
   if (teleop_timer_ != nullptr) {
     teleop_timer_->stop();
   }
+  pressed_teleop_keys_.clear();
+  pressed_teleop_buttons_.fill(false);
   teleop_linear_x_ = 0.0;
   teleop_angular_z_ = 0.0;
   bridge_.stop_teleop();
-  if (was_active && mapping_log_ != nullptr) {
-    append_mapping_log(ui_text("Teleoperation stopped"));
+}
+
+QString MainWindow::teleop_action_text(TeleopKeyBindings::Action action) const {
+  switch (action) {
+    case TeleopKeyBindings::kForward:
+      return ui_text("Forward");
+    case TeleopKeyBindings::kReverse:
+      return ui_text("Reverse");
+    case TeleopKeyBindings::kLeft:
+      return ui_text("Left");
+    case TeleopKeyBindings::kRight:
+      return ui_text("Right");
+    case TeleopKeyBindings::kStop:
+      return ui_text("Stop");
+    case TeleopKeyBindings::kActionCount:
+      return {};
   }
+  return {};
+}
+
+void MainWindow::refresh_key_binding_buttons() {
+  for (int index = 0; index < TeleopKeyBindings::kActionCount; ++index) {
+    const auto action = static_cast<TeleopKeyBindings::Action>(index);
+    auto *button = key_capture_buttons_.at(index);
+    if (key_capture_action_ && *key_capture_action_ == action) {
+      button->setText(ui_text("Press a key…"));
+      continue;
+    }
+    QStringList names;
+    for (const int key : teleop_key_bindings_.keys_for(action)) {
+      names.append(QKeySequence(key).toString(QKeySequence::NativeText));
+    }
+    button->setText(QString("%1: %2").arg(teleop_action_text(action), names.join(" / ")));
+  }
+}
+
+void MainWindow::begin_key_capture(TeleopKeyBindings::Action action) {
+  set_teleop_enabled(false);
+  key_capture_action_ = action;
+  refresh_key_binding_buttons();
+  key_capture_buttons_.at(action)->setFocus(Qt::OtherFocusReason);
 }
 
 void MainWindow::save_current_map() {
@@ -1110,6 +1371,7 @@ void MainWindow::update_component(const QString &component, int state, int pid, 
 void MainWindow::update_health(const QString &topic, bool active) {
   health_activity_[topic] = active;
   update_health_label(topic);
+  update_controls();
 }
 
 }  // namespace car_operator_console

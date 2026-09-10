@@ -1,4 +1,5 @@
 #include <QAction>
+#include <QCheckBox>
 #include <QCoreApplication>
 #include <QLabel>
 #include <QMenu>
@@ -129,11 +130,13 @@ class LanguageManagerTest final : public QObject {
     auto *tabs = window.findChild<QTabWidget *>("mainTabs");
 
     QVERIFY(tabs != nullptr);
-    QCOMPARE(tabs->count(), 3);
+    QCOMPARE(tabs->count(), 4);
     QCOMPARE(tabs->tabText(0), QString("Console"));
     QCOMPARE(tabs->tabText(1), QString("Mapping"));
-    QCOMPARE(tabs->tabText(2), QString("Map view"));
+    QCOMPARE(tabs->tabText(2), QString("Teleoperation"));
+    QCOMPARE(tabs->tabText(3), QString("Map view"));
     QVERIFY(window.findChild<QWidget *>("mappingPage") != nullptr);
+    QVERIFY(window.findChild<QWidget *>("teleopPage") != nullptr);
     QVERIFY(window.findChild<QPushButton *>("mappingStartButton") != nullptr);
     QVERIFY(window.findChild<QPushButton *>("mappingSaveButton") != nullptr);
     QVERIFY(window.findChild<QPushButton *>("mappingStopButton") != nullptr);
@@ -147,6 +150,8 @@ class LanguageManagerTest final : public QObject {
     QVERIFY(left != nullptr);
     QVERIFY(right != nullptr);
     QVERIFY(stop != nullptr);
+    QVERIFY(window.findChild<QPushButton *>("teleopResetKeysButton") != nullptr);
+    QVERIFY(window.findChild<QCheckBox *>("teleopEnableCheck") != nullptr);
     QVERIFY(!forward->isEnabled());
     QVERIFY(!reverse->isEnabled());
     QVERIFY(!left->isEnabled());

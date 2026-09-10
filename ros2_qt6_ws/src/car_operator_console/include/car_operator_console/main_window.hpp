@@ -1,21 +1,30 @@
 #pragma once
 
+#include <array>
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <QMainWindow>
+#include <QSet>
 
 #include "car_operator_console/console_state.hpp"
 #include "car_operator_console/language_manager.hpp"
 #include "car_operator_console/ros_bridge.hpp"
+#include "car_operator_console/teleop_key_bindings.hpp"
 
 class QAction;
 class QActionGroup;
 class QComboBox;
 class QCloseEvent;
+class QCheckBox;
 class QDoubleSpinBox;
+class QEvent;
+class QFocusEvent;
 class QGroupBox;
+class QHideEvent;
+class QKeyEvent;
 class QLabel;
 class QLineEdit;
 class QMenu;
@@ -45,7 +54,13 @@ class MainWindow final : public QMainWindow {
   ~MainWindow() override;
 
  protected:
+  void changeEvent(QEvent *event) override;
   void closeEvent(QCloseEvent *event) override;
+  bool eventFilter(QObject *watched, QEvent *event) override;
+  void focusOutEvent(QFocusEvent *event) override;
+  void hideEvent(QHideEvent *event) override;
+  void keyPressEvent(QKeyEvent *event) override;
+  void keyReleaseEvent(QKeyEvent *event) override;
 
  private:
   struct ComponentDisplay {
@@ -69,8 +84,16 @@ class MainWindow final : public QMainWindow {
   void stop_local_mapping(bool discard_unsaved);
   void save_current_map();
   QString mapping_output_base() const;
-  void start_teleop(double linear_x, double angular_z);
+  bool vehicle_topics_ready() const;
+  bool teleop_prerequisites_met() const;
+  bool teleop_tab_active() const;
+  void set_teleop_enabled(bool enabled);
+  void set_teleop_button_active(TeleopKeyBindings::Action action, bool active);
+  void update_teleop_motion();
   void stop_teleop();
+  void begin_key_capture(TeleopKeyBindings::Action action);
+  void refresh_key_binding_buttons();
+  QString teleop_action_text(TeleopKeyBindings::Action action) const;
   void initialize_rviz();
   void shutdown_rviz();
   bool confirm_mode_switch(const QString &target_mode);
@@ -121,16 +144,22 @@ class MainWindow final : public QMainWindow {
   QLabel *mapping_hint_{};
   QLabel *mapping_state_label_{};
   QLabel *mapping_name_label_{};
-  QLabel *teleop_linear_label_{};
-  QLabel *teleop_angular_label_{};
   QLineEdit *mapping_name_input_{};
-  QDoubleSpinBox *teleop_linear_input_{};
-  QDoubleSpinBox *teleop_angular_input_{};
   QPushButton *mapping_start_button_{};
   QPushButton *mapping_save_button_{};
   QPushButton *mapping_stop_button_{};
-  std::vector<QPushButton *> teleop_buttons_;
   QPlainTextEdit *mapping_log_{};
+  QWidget *teleop_page_{};
+  QLabel *teleop_hint_{};
+  QLabel *teleop_status_label_{};
+  QLabel *teleop_linear_label_{};
+  QLabel *teleop_angular_label_{};
+  QCheckBox *teleop_enable_check_{};
+  QDoubleSpinBox *teleop_linear_input_{};
+  QDoubleSpinBox *teleop_angular_input_{};
+  std::array<QPushButton *, TeleopKeyBindings::kActionCount> teleop_action_buttons_{};
+  std::array<QPushButton *, TeleopKeyBindings::kActionCount> key_capture_buttons_{};
+  QPushButton *teleop_reset_keys_button_{};
   QTimer *teleop_timer_{};
   QWidget *rviz_page_{};
   QVBoxLayout *rviz_layout_{};
@@ -149,8 +178,13 @@ class MainWindow final : public QMainWindow {
   bool mapping_stop_requested_{false};
   bool mapping_has_unsaved_changes_{false};
   bool stop_after_map_save_{false};
+  bool teleop_enabled_{false};
   double teleop_linear_x_{0.0};
   double teleop_angular_z_{0.0};
+  TeleopKeyBindings teleop_key_bindings_;
+  QSet<int> pressed_teleop_keys_;
+  std::array<bool, TeleopKeyBindings::kActionCount> pressed_teleop_buttons_{};
+  std::optional<TeleopKeyBindings::Action> key_capture_action_;
 };
 
 }  // namespace car_operator_console

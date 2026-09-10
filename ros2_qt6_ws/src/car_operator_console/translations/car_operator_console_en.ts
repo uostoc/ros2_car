@@ -42,6 +42,21 @@
     <message><source>%1 (PID %2): %3</source><translation>%1 (PID %2): %3</translation></message>
     <message><source>%1/%2: %3</source><translation>%1/%2: %3</translation></message>
     <message><source>%1: %2</source><translation>%1: %2</translation></message>
+    <message><source>Teleoperation</source><translation>Teleoperation</translation></message>
+    <message><source>Teleoperation is disabled. Enable it only with clear surroundings and a working physical e-stop.</source><translation>Teleoperation is disabled. Enable it only with clear surroundings and a working physical e-stop.</translation></message>
+    <message><source>Teleoperation enable</source><translation>Teleoperation enable</translation></message>
+    <message><source>Teleoperation is ready. Hold a movement button or mapped key to drive.</source><translation>Teleoperation is ready. Hold a movement button or mapped key to drive.</translation></message>
+    <message><source>Teleoperation is unavailable: start Base or Mapping, wait for vehicle topics, and stop Navigation.</source><translation>Teleoperation is unavailable: start Base or Mapping, wait for vehicle topics, and stop Navigation.</translation></message>
+    <message><source>Keyboard bindings</source><translation>Keyboard bindings</translation></message>
+    <message><source>Restore default keys</source><translation>Restore default keys</translation></message>
+    <message><source>Press a key…</source><translation>Press a key…</translation></message>
+    <message><source>Forward</source><translation>Forward</translation></message>
+    <message><source>Reverse</source><translation>Reverse</translation></message>
+    <message><source>Left</source><translation>Left</translation></message>
+    <message><source>Right</source><translation>Right</translation></message>
+    <message><source>%1 (hold)</source><translation>%1 (hold)</translation></message>
+    <message><source>Choose a non-modifier key</source><translation>Choose a non-modifier key</translation></message>
+    <message><source>That key is already assigned</source><translation>That key is already assigned</translation></message>
   </context>
   <context>
     <name>RosBridge</name>

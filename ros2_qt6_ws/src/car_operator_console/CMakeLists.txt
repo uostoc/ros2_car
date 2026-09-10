@@ -27,10 +27,12 @@ add_executable(car_operator_console
   include/car_operator_console/language_manager.hpp
   include/car_operator_console/main_window.hpp
   include/car_operator_console/ros_bridge.hpp
+  include/car_operator_console/teleop_key_bindings.hpp
   src/language_manager.cpp
   src/main.cpp
   src/main_window.cpp
   src/ros_bridge.cpp
+  src/teleop_key_bindings.cpp
 )
 target_compile_features(car_operator_console PUBLIC cxx_std_17)
 target_include_directories(car_operator_console PRIVATE include)
@@ -85,6 +87,7 @@ if(BUILD_TESTING)
     src/language_manager.cpp
     src/main_window.cpp
     src/ros_bridge.cpp
+    src/teleop_key_bindings.cpp
   )
   target_compile_features(test_language_manager PUBLIC cxx_std_17)
   target_include_directories(test_language_manager PRIVATE include)
@@ -111,6 +114,16 @@ if(BUILD_TESTING)
   file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_logs")
   set_tests_properties(test_language_manager PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;ROS_LOG_DIR=${CMAKE_CURRENT_BINARY_DIR}/test_logs")
+
+  add_executable(test_teleop_key_bindings
+    include/car_operator_console/teleop_key_bindings.hpp
+    src/teleop_key_bindings.cpp
+    test/test_teleop_key_bindings.cpp
+  )
+  target_compile_features(test_teleop_key_bindings PUBLIC cxx_std_17)
+  target_include_directories(test_teleop_key_bindings PRIVATE include)
+  target_link_libraries(test_teleop_key_bindings Qt5::Test)
+  add_test(NAME test_teleop_key_bindings COMMAND test_teleop_key_bindings)
 endif()
 
 ament_package()

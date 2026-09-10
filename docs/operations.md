@@ -71,11 +71,15 @@ for precise input.
   vehicle, then use the console's **Mapping** tab to start local Cartographer and save
   named YAML/PGM maps into `fishbot_navigation2/maps`.
 
-The Mapping tab provides constrained `/cmd_vel` teleoperation only while local
-mapping is running and `/scan`, `/odom`, `/imu`, and `/tf` are active. Movement
-buttons are press-and-hold: releasing a button, clicking **Stop**, stopping
-mapping or all components, and closing the console all publish a zero velocity.
-It has no obstacle avoidance, so retain a physical e-stop and an attentive
-operator; never run another `/cmd_vel` command source at the same time. Patrol
-sends Nav2 goals for each configured route point and then returns to its declared
-start pose.
+The console's separate **Teleoperation** tab publishes constrained `/cmd_vel`
+commands only after the operator explicitly enables it. It is available while
+Base or local Mapping is running, `/scan`, `/odom`, `/imu`, and `/tf` are
+active, and Navigation is stopped. Hold its movement buttons or `W`/Up,
+`S`/Down, `A`/Left, and `D`/Right to drive; Space or `0` stops immediately.
+The tab can save one additional key for every direction and stop action on the
+operator computer. Switching away from the tab, losing focus, disabling
+teleoperation, stopping a prerequisite, or closing the console publishes zero
+velocity. It has no obstacle avoidance, so retain a physical e-stop and an
+attentive operator; never run another `/cmd_vel` command source at the same
+time. Patrol sends Nav2 goals for each configured route point and then returns
+to its declared start pose.

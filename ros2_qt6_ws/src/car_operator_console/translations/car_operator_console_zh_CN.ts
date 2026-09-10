@@ -42,6 +42,21 @@
     <message><source>%1 (PID %2): %3</source><translation>%1（进程号 %2）：%3</translation></message>
     <message><source>%1/%2: %3</source><translation>%1/%2：%3</translation></message>
     <message><source>%1: %2</source><translation>%1：%2</translation></message>
+    <message><source>Teleoperation</source><translation>遥控</translation></message>
+    <message><source>Teleoperation is disabled. Enable it only with clear surroundings and a working physical e-stop.</source><translation>遥控已禁用。请仅在周围环境清晰且实体急停可用时启用。</translation></message>
+    <message><source>Teleoperation enable</source><translation>启用遥控</translation></message>
+    <message><source>Teleoperation is ready. Hold a movement button or mapped key to drive.</source><translation>遥控已就绪。按住方向按钮或已映射按键即可行驶。</translation></message>
+    <message><source>Teleoperation is unavailable: start Base or Mapping, wait for vehicle topics, and stop Navigation.</source><translation>遥控不可用：请启动基础栈或建图，等待车辆话题就绪，并停止导航。</translation></message>
+    <message><source>Keyboard bindings</source><translation>键盘映射</translation></message>
+    <message><source>Restore default keys</source><translation>恢复默认按键</translation></message>
+    <message><source>Press a key…</source><translation>请按一个按键…</translation></message>
+    <message><source>Forward</source><translation>前进</translation></message>
+    <message><source>Reverse</source><translation>后退</translation></message>
+    <message><source>Left</source><translation>左转</translation></message>
+    <message><source>Right</source><translation>右转</translation></message>
+    <message><source>%1 (hold)</source><translation>%1（按住）</translation></message>
+    <message><source>Choose a non-modifier key</source><translation>请选择非修饰键</translation></message>
+    <message><source>That key is already assigned</source><translation>该按键已被分配</translation></message>
   </context>
   <context>
     <name>RosBridge</name>
